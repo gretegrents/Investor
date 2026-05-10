@@ -17,26 +17,32 @@ h1{text-align:center;margin-bottom:20px;color:#fff}
 .tab-content.active{display:block}
 .section{background:#2a2a4a;padding:15px;border-radius:8px;margin-bottom:20px}
 .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:10px}
-label{font-size:13px;color:#aaa}
 input[type=text]{padding:8px 12px;border-radius:4px;border:1px solid #444;background:#1a1a2e;color:#fff;width:350px}
 .btn{padding:8px 16px;border-radius:4px;border:none;cursor:pointer;font-size:13px}
 .btn-primary{background:#4fc3f7;color:#000}
 .btn-primary:hover{background:#81d4fa}
 .btn-secondary{background:#444;color:#fff}
 .btn-secondary:hover{background:#555}
-.time-buttons{display:flex;gap:6px;margin-top:10px}
+.time-buttons{display:flex;gap:6px}
 .time-btn{padding:6px 14px;border-radius:4px;border:1px solid #444;background:#1a1a2e;color:#aaa;cursor:pointer;font-size:13px}
 .time-btn.active{background:#4fc3f7;color:#000;border-color:#4fc3f7}
 .chart-box{background:#2a2a4a;border-radius:8px;padding:20px;height:500px}
 .msg{padding:10px;font-size:13px;white-space:pre-wrap}
 .msg-error{color:#ff6b6b}
 .msg-info{color:#888}
-table{width:100%;border-collapse:collapse;background:#2a2a4a;border-radius:8px;overflow:hidden}
+table{width:100%;border-collapse:collapse;background:#2a2a4a;border-radius:8px;overflow:hidden;margin-top:10px}
 th,td{padding:10px 14px;text-align:center;border-bottom:1px solid #333;font-size:13px}
 th{background:#333;color:#aaa}
-td.editable{background:#3a3a1a;cursor:text}
+.peg-green{background:#1b5e20;color:#69f0ae}
+.peg-yellow{background:#33691e;color:#aed581}
+.peg-red{background:#b71c1c;color:#ff8a80}
 textarea.notes{width:100%;height:50px;background:#1a1a2e;border:1px solid #444;color:#e0e0e0;border-radius:4px;padding:6px;font-size:12px;resize:vertical}
 .export-btns{margin-top:15px;display:flex;gap:10px}
+.fin-card{background:#2a2a4a;border-radius:8px;padding:15px;margin-bottom:15px}
+.fin-card h3{color:#4fc3f7;margin-bottom:10px;font-size:14px}
+.fin-row{display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid #333;font-size:13px}
+.fin-row span:first-child{color:#aaa}
+.fin-row span:last-child{color:#fff}
 </style>
 </head>
 <body>
@@ -45,22 +51,20 @@ textarea.notes{width:100%;height:50px;background:#1a1a2e;border:1px solid #444;c
 
 <div class="section">
   <div class="row">
-    <label>Alpha Vantage API Key:</label>
-    <input type="text" id="apiKey" placeholder="Enter key from alphavantage.co">
-    <button class="btn btn-primary" onclick="saveKey()">Save</button>
-    <span style="color:#888;font-size:12px">Free: 25 requests/day</span>
+    <span style="color:#888;font-size:12px">Powered by Twelve Data (800 calls/day)</span>
   </div>
 </div>
 
 <div class="tabs">
   <button class="tab active" id="tabBtn-chart" onclick="switchTab('chart')">📈 Chart</button>
   <button class="tab" id="tabBtn-valuation" onclick="switchTab('valuation')">📊 Valuation</button>
+  <button class="tab" id="tabBtn-financials" onclick="switchTab('financials')">🏦 Financials</button>
 </div>
 
 <div id="tab-chart" class="tab-content active">
   <div class="section">
     <div class="row">
-      <input type="text" id="chartTickers" placeholder="Tickers separated by commas (e.g. AAPL, MSFT, GOOGL)">
+      <input type="text" id="chartTickers" placeholder="Tickers (e.g. AAPL, MSFT, GOOGL)">
       <button class="btn btn-primary" onclick="fetchChart()">Load Chart</button>
     </div>
     <div class="time-buttons">
@@ -74,13 +78,13 @@ textarea.notes{width:100%;height:50px;background:#1a1a2e;border:1px solid #444;c
   </div>
   <div class="chart-box"><canvas id="priceChart"></canvas></div>
   <div class="msg msg-error" id="chartMsg"></div>
-  <div class="msg msg-info">Each ticker = 1 API call. Prices normalized to 100% at start date.</div>
+  <div class="msg msg-info">Prices normalized to 100% at start date for comparison.</div>
 </div>
 
 <div id="tab-valuation" class="tab-content">
   <div class="section">
     <div class="row">
-      <input type="text" id="valTickers" placeholder="Tickers separated by commas (e.g. AAPL, MSFT, GOOGL)">
+      <input type="text" id="valTickers" placeholder="Tickers (e.g. AAPL, MSFT, GOOGL)">
       <button class="btn btn-primary" onclick="fetchVal()">Fetch Data</button>
     </div>
   </div>
@@ -90,14 +94,21 @@ textarea.notes{width:100%;height:50px;background:#1a1a2e;border:1px solid #444;c
     <button class="btn btn-secondary" onclick="exportPDF()">Export PDF</button>
   </div>
 </div>
+
+<div id="tab-financials" class="tab-content">
+  <div class="section">
+    <div class="row">
+      <input type="text" id="finTicker" placeholder="Single ticker (e.g. AAPL)">
+      <button class="btn btn-primary" onclick="fetchFinancials()">Load Balance Sheet</button>
+    </div>
+  </div>
+  <div id="finData"></div>
+</div>
 </div>
 
 <script>
+var API_KEY='a9dbe0a930ff4e08a0856285c50ec908';
 var chart=null,timeRange='6M',chartData={};
-
-function saveKey(){localStorage.setItem('av_key',document.getElementById('apiKey').value.trim());alert('Saved!')}
-function getKey(){var k=localStorage.getItem('av_key')||'';document.getElementById('apiKey').value=k;return k}
-window.onload=getKey;
 
 function switchTab(t){
   document.querySelectorAll('.tab-content').forEach(function(el){el.classList.remove('active')});
@@ -124,27 +135,30 @@ function getStart(){
   return d.toISOString().split('T')[0];
 }
 
+function getOutputSize(){
+  if(timeRange==='1M'||timeRange==='3M')return 100;
+  if(timeRange==='6M')return 150;
+  if(timeRange==='1Y')return 260;
+  if(timeRange==='3Y')return 780;
+  return 1300;
+}
+
 function fetchChart(){
-  var key=getKey();
-  if(!key){document.getElementById('chartMsg').textContent='Enter API key first';return}
   var tickers=document.getElementById('chartTickers').value.split(',').map(function(t){return t.trim().toUpperCase()}).filter(function(t){return t});
   if(!tickers.length){document.getElementById('chartMsg').textContent='Enter at least one ticker';return}
-  
-  document.getElementById('chartMsg').textContent='Loading '+tickers.join(', ')+'...';
+  document.getElementById('chartMsg').textContent='Loading...';
   chartData={};
   var loaded=0;
+  var startDate=getStart();
   
   tickers.forEach(function(ticker){
-    var url='https://www.alphavantage.co/query?function=TIME_SERIES_DAILY&symbol='+ticker+'&outputsize=full&apikey='+key;
+    var url='https://api.twelvedata.com/time_series?symbol='+ticker+'&interval=1day&start_date='+startDate+'&outputsize='+getOutputSize()+'&apikey='+API_KEY;
     fetch(url).then(function(r){return r.json()}).then(function(data){
-      if(data['Error Message']){
-        document.getElementById('chartMsg').textContent+='\n'+ticker+': Invalid symbol';
-      }else if(data['Note']||data['Information']){
-        document.getElementById('chartMsg').textContent+='\nAPI limit reached (25/day)';
-      }else if(data['Time Series (Daily)']){
-        var ts=data['Time Series (Daily)'];
-        chartData[ticker]=Object.keys(ts).map(function(date){
-          return{date:date,close:parseFloat(ts[date]['4. close'])}
+      if(data.status==='error'){
+        document.getElementById('chartMsg').textContent+='\n'+ticker+': '+data.message;
+      }else if(data.values){
+        chartData[ticker]=data.values.map(function(v){
+          return{date:v.datetime,close:parseFloat(v.close)};
         }).reverse();
       }
       loaded++;
@@ -153,7 +167,7 @@ function fetchChart(){
           document.getElementById('chartMsg').textContent='';
           renderChart();
         }else{
-          document.getElementById('chartMsg').textContent+'\nNo data to display';
+          document.getElementById('chartMsg').textContent+='\nNo data to display';
         }
       }
     }).catch(function(e){
@@ -164,18 +178,17 @@ function fetchChart(){
 }
 
 function renderChart(){
-  var start=getStart();
   var colors=['#4fc3f7','#ff6b6b','#69f0ae','#ffd54f','#ce93d8','#ff8a65','#80cbc4','#f48fb1','#aed581','#90a4ae'];
   var datasets=[],labels=null;
   
   Object.keys(chartData).forEach(function(ticker,idx){
-    var filtered=chartData[ticker].filter(function(d){return d.date>=start});
-    if(!filtered.length)return;
-    var base=filtered[0].close;
-    if(!labels)labels=filtered.map(function(d){return d.date});
+    var data=chartData[ticker];
+    if(!data.length)return;
+    var base=data[0].close;
+    if(!labels)labels=data.map(function(d){return d.date});
     datasets.push({
       label:ticker,
-      data:filtered.map(function(d){return d.close/base}),
+      data:data.map(function(d){return d.close/base}),
       borderColor:colors[idx%colors.length],
       backgroundColor:'transparent',
       borderWidth:2,
@@ -207,31 +220,47 @@ function renderChart(){
 }
 
 function fetchVal(){
-  var key=getKey();
-  if(!key){alert('Enter API key');return}
   var tickers=document.getElementById('valTickers').value.split(',').map(function(t){return t.trim().toUpperCase()}).filter(function(t){return t});
   if(!tickers.length){alert('Enter tickers');return}
-  
   var results={},loaded=0;
+  
   tickers.forEach(function(ticker){
-    fetch('https://www.alphavantage.co/query?function=OVERVIEW&symbol='+ticker+'&apikey='+key)
+    fetch('https://api.twelvedata.com/statistics?symbol='+ticker+'&apikey='+API_KEY)
     .then(function(r){return r.json()}).then(function(d){
-      results[ticker]={
-        name:d.Name||ticker,
-        marketCap:d.MarketCapitalization?(parseFloat(d.MarketCapitalization)/1e9).toFixed(1)+'B':'-',
-        eps:d.EPS||'-',
-        pe:d.TrailingPE||'-',
-        forwardPE:d.ForwardPE||'-',
-        peg:d.PEGRatio||'-',
-        divYield:d.DividendYield?(parseFloat(d.DividendYield)*100).toFixed(2)+'%':'-',
-        beta:d.Beta||'-',
-        high52:d['52WeekHigh']||'-',
-        low52:d['52WeekLow']||'-'
-      };
+      if(d.statistics){
+        var s=d.statistics;
+        var v=s.valuations_metrics||{};
+        var f=s.financials||{};
+        results[ticker]={
+          name:d.meta?d.meta.name:ticker,
+          marketCap:v.market_capitalization?fmt(parseFloat(v.market_capitalization)):'-',
+          eps:f.earnings_per_share||'-',
+          pe:v.trailing_pe||'-',
+          forwardPE:v.forward_pe||'-',
+          peg:v.peg_ratio||'-',
+          divYield:s.dividends_and_splits&&s.dividends_and_splits.dividend_yield?s.dividends_and_splits.dividend_yield+'%':'-',
+          beta:s.stock_price_summary?s.stock_price_summary.beta:'-',
+          high52:s.stock_price_summary?s.stock_price_summary['52_week_high']:'-',
+          low52:s.stock_price_summary?s.stock_price_summary['52_week_low']:'-'
+        };
+      }else{
+        results[ticker]={name:ticker,error:d.message||'No data'};
+      }
       loaded++;
       if(loaded===tickers.length)renderVal(tickers,results);
-    }).catch(function(){loaded++;if(loaded===tickers.length)renderVal(tickers,results)});
+    }).catch(function(e){
+      results[ticker]={name:ticker,error:e.message};
+      loaded++;
+      if(loaded===tickers.length)renderVal(tickers,results);
+    });
   });
+}
+
+function fmt(n){
+  if(n>=1e12)return(n/1e12).toFixed(1)+'T';
+  if(n>=1e9)return(n/1e9).toFixed(1)+'B';
+  if(n>=1e6)return(n/1e6).toFixed(1)+'M';
+  return n.toFixed(0);
 }
 
 function renderVal(tickers,results){
@@ -250,21 +279,81 @@ function renderVal(tickers,results){
       var d=results[t]||{};
       if(r.k==='notes'){h+='<td><textarea class="notes" placeholder="Notes..."></textarea></td>'}
       else{
-        var v=d[r.k]||'-';
-        var s='';
-        if(r.hl&&v!=='-'){
-          var p=parseFloat(v);
-          if(p<1)s='background:#1b5e20;color:#69f0ae';
-          else if(p<2)s='background:#33691e;color:#aed581';
-          else if(p>3)s='background:#b71c1c;color:#ff8a80';
+        var val=d[r.k]||'-';
+        var cls='';
+        if(r.hl&&val!=='-'){
+          var p=parseFloat(val);
+          if(p<1)cls='peg-green';
+          else if(p<2)cls='peg-yellow';
+          else if(p>3)cls='peg-red';
         }
-        h+='<td style="'+s+'">'+v+'</td>';
+        h+='<td class="'+cls+'">'+val+'</td>';
       }
     });
     h+='</tr>';
   });
   h+='</table>';
   document.getElementById('valTable').innerHTML=h;
+}
+
+function fetchFinancials(){
+  var ticker=document.getElementById('finTicker').value.trim().toUpperCase();
+  if(!ticker){alert('Enter a ticker');return}
+  document.getElementById('finData').innerHTML='<div class="msg msg-info">Loading...</div>';
+  
+  fetch('https://api.twelvedata.com/balance_sheet?symbol='+ticker+'&period=quarterly&apikey='+API_KEY)
+  .then(function(r){return r.json()}).then(function(data){
+    if(data.status==='error'){
+      document.getElementById('finData').innerHTML='<div class="msg msg-error">'+data.message+'</div>';
+      return;
+    }
+    var bs=data.balance_sheet;
+    if(!bs||!bs.length){
+      document.getElementById('finData').innerHTML='<div class="msg msg-error">No balance sheet data available</div>';
+      return;
+    }
+    
+    var latest=bs[0];
+    var prev=bs[1]||{};
+    var h='<div class="fin-card"><h3>'+ticker+' — Balance Sheet ('+latest.fiscal_date+')</h3>';
+    
+    var items=[
+      ['Total Assets',latest.total_assets,prev.total_assets],
+      ['Current Assets',latest.current_assets,prev.current_assets],
+      ['Cash & Equivalents',latest.cash_and_short_term_investments,prev.cash_and_short_term_investments],
+      ['Total Liabilities',latest.total_liabilities,prev.total_liabilities],
+      ['Current Liabilities',latest.current_liabilities,prev.current_liabilities],
+      ['Long-term Debt',latest.long_term_debt,prev.long_term_debt],
+      ['Shareholders Equity',latest.shareholders_equity,prev.shareholders_equity],
+      ['Retained Earnings',latest.retained_earnings,prev.retained_earnings]
+    ];
+    
+    h+='<table><tr><th style="text-align:left">Item</th><th>'+latest.fiscal_date+'</th><th>'+(prev.fiscal_date||'Prior')+'</th><th>Change</th></tr>';
+    items.forEach(function(item){
+      var curr=item[1]?parseFloat(item[1]):null;
+      var prv=item[2]?parseFloat(item[2]):null;
+      var change=(curr&&prv)?((curr-prv)/Math.abs(prv)*100).toFixed(1)+'%':'-';
+      var changeColor=(curr&&prv)?(curr>=prv?'color:#69f0ae':'color:#ff6b6b'):'';
+      h+='<tr><td style="text-align:left">'+item[0]+'</td>';
+      h+='<td>'+(curr?fmt(curr):'-')+'</td>';
+      h+='<td>'+(prv?fmt(prv):'-')+'</td>';
+      h+='<td style="'+changeColor+'">'+change+'</td></tr>';
+    });
+    h+='</table>';
+    
+    // Ratios
+    var currRatio=latest.current_assets&&latest.current_liabilities?(parseFloat(latest.current_assets)/parseFloat(latest.current_liabilities)).toFixed(2):'-';
+    var debtEquity=latest.total_liabilities&&latest.shareholders_equity?(parseFloat(latest.total_liabilities)/parseFloat(latest.shareholders_equity)).toFixed(2):'-';
+    
+    h+='<div style="margin-top:15px"><h3>Key Ratios</h3>';
+    h+='<div class="fin-row"><span>Current Ratio</span><span>'+currRatio+'</span></div>';
+    h+='<div class="fin-row"><span>Debt-to-Equity</span><span>'+debtEquity+'</span></div>';
+    h+='</div></div>';
+    
+    document.getElementById('finData').innerHTML=h;
+  }).catch(function(e){
+    document.getElementById('finData').innerHTML='<div class="msg msg-error">Error: '+e.message+'</div>';
+  });
 }
 
 function exportCSV(){
