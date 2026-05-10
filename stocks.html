@@ -174,13 +174,6 @@ function getStart(){
   return d.toISOString().split('T')[0];
 }
 
-function getOutputSize(){
-  if(timeRange==='1M'||timeRange==='3M')return 100;
-  if(timeRange==='6M')return 150;
-  if(timeRange==='1Y')return 260;
-  if(timeRange==='3Y')return 780;
-  return 1300;
-}
 
 // --- Chart ---
 function fetchChart(){
