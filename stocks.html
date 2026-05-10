@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Stock Comparison Tool</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#1a1a2e;color:#e0e0e0;min-height:100vh;padding:20px}
+.container{max-width:1400px;margin:0 auto}
+h1{text-align:center;margin-bottom:20px;color:#fff}
+.tabs{display:flex;gap:4px;margin-bottom:20px}
+.tab{padding:10px 24px;background:#2a2a4a;border:none;color:#aaa;cursor:pointer;border-radius:8px 8px 0 0;font-size:14px}
+.tab.active{color:#fff;border-bottom:2px solid #4fc3f7}
+.tab-content{display:none}
+.tab-content.active{display:block}
+.section{background:#2a2a4a;padding:15px;border-radius:8px;margin-bottom:20px}
+.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:10px}
+label{font-size:13px;color:#aaa}
+input[type=text]{padding:8px 12px;border-radius:4px;border:1px solid #444;background:#1a1a2e;color:#fff;width:350px}
+.btn{padding:8px 16px;border-radius:4px;border:none;cursor:pointer;font-size:13px}
+.btn-primary{background:#4fc3f7;color:#000}
+.btn-primary:hover{background:#81d4fa}
+.btn-secondary{background:#444;color:#fff}
+.btn-secondary:hover{background:#555}
+.time-buttons{display:flex;gap:6px;margin-top:10px}
+.time-btn{padding:6px 14px;border-radius:4px;border:1px solid #444;background:#1a1a2e;color:#aaa;cursor:pointer;font-size:13px}
+.time-btn.active{background:#4fc3f7;color:#000;border-color:#4fc3f7}
+.chart-box{background:#2a2a4a;border-radius:8px;padding:20px;height:500px}
+.msg{padding:10px;font-size:13px;white-space:pre-wrap}
+.msg-error{color:#ff6b6b}
+.msg-info{color:#888}
+table{width:100%;border-collapse:collapse;background:#2a2a4a;border-radius:8px;overflow:hidden}
+th,td{padding:10px 14px;text-align:center;border-bottom:1px solid #333;font-size:13px}
+th{background:#333;color:#aaa}
+td.editable{background:#3a3a1a;cursor:text}
+textarea.notes{width:100%;height:50px;background:#1a1a2e;border:1px solid #444;color:#e0e0e0;border-radius:4px;padding:6px;font-size:12px;resize:vertical}
+.export-btns{margin-top:15px;display:flex;gap:10px}
+</style>
+</head>
+<body>
+<div class="container">
+<h1>Stock Comparison Tool</h1>
+
+<div class="section">
+  <div class="row">
+    <label>Alpha Vantage API Key:</label>
+    <input type="text" id="apiKey" placeholder="Enter key from alphavantage.co">
+    <button class="btn btn-primary" onclick="saveKey()">Save</button>
+    <span style="color:#888;font-size:12px">Free: 25 requests/day</span>
+  </div>
+</div>
+
+<div class="tabs">
+  <button class="tab active" id="tabBtn-chart" onclick="switchTab('chart')">📈 Chart</button>
+  <button class="tab" id="tabBtn-valuation" onclick="switchTab('valuation')">📊 Valuation</button>
+</div>
+
+<div id="tab-chart" class="tab-content active">
+  <div class="section">
+    <div class="row">
+      <input type="text" id="chartTickers" placeholder="Tickers separated by commas (e.g. AAPL, MSFT, GOOGL)">
+      <button class="btn btn-primary" onclick="fetchChart()">Load Chart</button>
+    </div>
+    <div class="time-buttons">
+      <button class="time-btn" onclick="setTime('1M',this)">1M</button>
+      <button class="time-btn" onclick="setTime('3M',this)">3M</button>
+      <button class="time-btn active" onclick="setTime('6M',this)">6M</button>
+      <button class="time-btn" onclick="setTime('1Y',this)">1Y</button>
+      <button class="time-btn" onclick="setTime('3Y',this)">3Y</button>
+      <button class="time-btn" onclick="setTime('5Y',this)">5Y</button>
+    </div>
+  </div>
+  <div class="chart-box"><canvas id="priceChart"></canvas></div>
+  <div class="msg msg-error" id="chartMsg"></div>
+  <div class="msg msg-info">Each ticker = 1 API call. Prices normalized to 100% at start date.</div>
+</div>
+
+<div id="tab-valuation" class="tab-content">
+  <div class="section">
+    <div class="row">
+      <input type="text" id="valTickers" placeholder="Tickers separated by commas (e.g. AAPL, MSFT, GOOGL)">
+      <button class="btn btn-primary" onclick="fetchVal()">Fetch Data</button>
+    </div>
+  </div>
+  <div id="valTable"></div>
+  <div class="export-btns">
+    <button class="btn btn-secondary" onclick="exportCSV()">Export CSV</button>
+    <button class="btn btn-secondary" onclick="exportPDF()">Export PDF</button>
+  </div>
+</div>
+</div>
+
+<script>
+var chart=null,timeRange='6M',chartData={};
+
+function saveKey(){localStorage.setItem('av_key',document.getElementById('apiKey').value.trim());alert('Saved!')}
+function getKey(){var k=localStorage.getItem('av_key')||'';document.getElementById('apiKey').value=k;return k}
+window.onload=getKey;
+
+function switchTab(t){
+  document.querySelectorAll('.tab-content').forEach(function(el){el.classList.remove('active')});
+  document.querySelectorAll('.tab').forEach(function(el){el.classList.remove('active')});
+  document.getElementById('tab-'+t).classList.add('active');
+  document.getElementById('tabBtn-'+t).classList.add('active');
+}
+
+function setTime(r,btn){
+  timeRange=r;
+  document.querySelectorAll('.time-btn').forEach(function(b){b.classList.remove('active')});
+  btn.classList.add('active');
+  if(Object.keys(chartData).length>0)renderChart();
+}
+
+function getStart(){
+  var d=new Date();
+  if(timeRange==='1M')d.setMonth(d.getMonth()-1);
+  else if(timeRange==='3M')d.setMonth(d.getMonth()-3);
+  else if(timeRange==='6M')d.setMonth(d.getMonth()-6);
+  else if(timeRange==='1Y')d.setFullYear(d.getFullYear()-1);
+  else if(timeRange==='3Y')d.setFullYear(d.getFullYear()-3);
+  else if(timeRange==='5Y')d.setFullYear(d.getFullYear()-5);
+  return d.toISOString().split('T')[0];
+}
+
+function fetchChart(){
+  var key=getKey();
+  if(!key){document.getElementById('chartMsg').textContent='Enter API key first';return}
+  var tickers=document.getElementById('chartTickers').value.split(',').map(function(t){return t.trim().toUpperCase()}).filter(function(t){return t});
+  if(!tickers.length){document.getElementById('chartMsg').textContent='Enter at least one ticker';return}
+  
+  document.getElementById('chartMsg').textContent='Loading '+tickers.join(', ')+'...';
+  chartData={};
+  var loaded=0;
+  
+  tickers.forEach(function(ticker){
+    var url='https://www.alphavantage.co/query?function=TIME_SERIES_DAILY&symbol='+ticker+'&outputsize=full&apikey='+key;
+    fetch(url).then(function(r){return r.json()}).then(function(data){
+      if(data['Error Message']){
+        document.getElementById('chartMsg').textContent+='\n'+ticker+': Invalid symbol';
+      }else if(data['Note']||data['Information']){
+        document.getElementById('chartMsg').textContent+='\nAPI limit reached (25/day)';
+      }else if(data['Time Series (Daily)']){
+        var ts=data['Time Series (Daily)'];
+        chartData[ticker]=Object.keys(ts).map(function(date){
+          return{date:date,close:parseFloat(ts[date]['4. close'])}
+        }).reverse();
+      }
+      loaded++;
+      if(loaded===tickers.length){
+        if(Object.keys(chartData).length>0){
+          document.getElementById('chartMsg').textContent='';
+          renderChart();
+        }else{
+          document.getElementById('chartMsg').textContent+'\nNo data to display';
+        }
+      }
+    }).catch(function(e){
+      document.getElementById('chartMsg').textContent+='\n'+ticker+': '+e.message;
+      loaded++;
+    });
+  });
+}
+
+function renderChart(){
+  var start=getStart();
+  var colors=['#4fc3f7','#ff6b6b','#69f0ae','#ffd54f','#ce93d8','#ff8a65','#80cbc4','#f48fb1','#aed581','#90a4ae'];
+  var datasets=[],labels=null;
+  
+  Object.keys(chartData).forEach(function(ticker,idx){
+    var filtered=chartData[ticker].filter(function(d){return d.date>=start});
+    if(!filtered.length)return;
+    var base=filtered[0].close;
+    if(!labels)labels=filtered.map(function(d){return d.date});
+    datasets.push({
+      label:ticker,
+      data:filtered.map(function(d){return d.close/base}),
+      borderColor:colors[idx%colors.length],
+      backgroundColor:'transparent',
+      borderWidth:2,
+      pointRadius:0,
+      tension:0.1
+    });
+  });
+  
+  if(!labels)return;
+  if(chart)chart.destroy();
+  
+  chart=new Chart(document.getElementById('priceChart'),{
+    type:'line',
+    data:{labels:labels,datasets:datasets},
+    options:{
+      responsive:true,
+      maintainAspectRatio:false,
+      interaction:{mode:'index',intersect:false},
+      plugins:{
+        legend:{position:'right',labels:{color:'#e0e0e0',usePointStyle:true}},
+        tooltip:{callbacks:{label:function(ctx){return ctx.dataset.label+': '+(ctx.parsed.y*100).toFixed(1)+'%'}}}
+      },
+      scales:{
+        x:{ticks:{color:'#888',maxTicksLimit:12},grid:{color:'#333'}},
+        y:{ticks:{color:'#888',callback:function(v){return(v*100).toFixed(0)+'%'}},grid:{color:'#333'}}
+      }
+    }
+  });
+}
+
+function fetchVal(){
+  var key=getKey();
+  if(!key){alert('Enter API key');return}
+  var tickers=document.getElementById('valTickers').value.split(',').map(function(t){return t.trim().toUpperCase()}).filter(function(t){return t});
+  if(!tickers.length){alert('Enter tickers');return}
+  
+  var results={},loaded=0;
+  tickers.forEach(function(ticker){
+    fetch('https://www.alphavantage.co/query?function=OVERVIEW&symbol='+ticker+'&apikey='+key)
+    .then(function(r){return r.json()}).then(function(d){
+      results[ticker]={
+        name:d.Name||ticker,
+        marketCap:d.MarketCapitalization?(parseFloat(d.MarketCapitalization)/1e9).toFixed(1)+'B':'-',
+        eps:d.EPS||'-',
+        pe:d.TrailingPE||'-',
+        forwardPE:d.ForwardPE||'-',
+        peg:d.PEGRatio||'-',
+        divYield:d.DividendYield?(parseFloat(d.DividendYield)*100).toFixed(2)+'%':'-',
+        beta:d.Beta||'-',
+        high52:d['52WeekHigh']||'-',
+        low52:d['52WeekLow']||'-'
+      };
+      loaded++;
+      if(loaded===tickers.length)renderVal(tickers,results);
+    }).catch(function(){loaded++;if(loaded===tickers.length)renderVal(tickers,results)});
+  });
+}
+
+function renderVal(tickers,results){
+  var rows=[
+    {k:'name',l:'Company'},{k:'marketCap',l:'Market Cap'},{k:'eps',l:'EPS'},
+    {k:'pe',l:'Trailing P/E'},{k:'forwardPE',l:'Forward P/E'},
+    {k:'peg',l:'PEG Ratio',hl:true},{k:'divYield',l:'Div Yield'},
+    {k:'beta',l:'Beta'},{k:'high52',l:'52W High'},{k:'low52',l:'52W Low'},{k:'notes',l:'Notes'}
+  ];
+  var h='<table><tr><th>Metric</th>';
+  tickers.forEach(function(t){h+='<th>'+t+'</th>'});
+  h+='</tr>';
+  rows.forEach(function(r){
+    h+='<tr><td style="text-align:left">'+r.l+'</td>';
+    tickers.forEach(function(t){
+      var d=results[t]||{};
+      if(r.k==='notes'){h+='<td><textarea class="notes" placeholder="Notes..."></textarea></td>'}
+      else{
+        var v=d[r.k]||'-';
+        var s='';
+        if(r.hl&&v!=='-'){
+          var p=parseFloat(v);
+          if(p<1)s='background:#1b5e20;color:#69f0ae';
+          else if(p<2)s='background:#33691e;color:#aed581';
+          else if(p>3)s='background:#b71c1c;color:#ff8a80';
+        }
+        h+='<td style="'+s+'">'+v+'</td>';
+      }
+    });
+    h+='</tr>';
+  });
+  h+='</table>';
+  document.getElementById('valTable').innerHTML=h;
+}
+
+function exportCSV(){
+  var t=document.querySelector('#valTable table');
+  if(!t){alert('No data');return}
+  var csv='';
+  t.querySelectorAll('tr').forEach(function(row){
+    var cells=[];
+    row.querySelectorAll('th,td').forEach(function(c){cells.push('"'+(c.textContent||'').replace(/"/g,'""')+'"')});
+    csv+=cells.join(',')+'\n';
+  });
+  var a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));
+  a.download='stocks.csv';a.click();
+}
+
+function exportPDF(){
+  var c=document.getElementById('valTable').innerHTML;
+  var w=window.open('');
+  w.document.write('<html><head><title>Stocks</title><style>table{border-collapse:collapse;width:100%}th,td{border:1px solid #ccc;padding:8px;text-align:center;font-size:12px}th{background:#f0f0f0}</style></head><body>'+c+'</body></html>');
+  w.document.close();w.print();
+}
+</script>
+</body>
+</html>
