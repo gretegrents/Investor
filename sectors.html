@@ -15,8 +15,6 @@ h1{text-align:center;margin-bottom:20px;color:#fff}
 .btn{padding:8px 16px;border-radius:4px;border:none;cursor:pointer;font-size:13px}
 .btn-primary{background:#4fc3f7;color:#000}
 .btn-primary:hover{background:#81d4fa}
-.btn-secondary{background:#444;color:#fff}
-.btn-secondary:hover{background:#555}
 .view-btn{padding:8px 18px;border-radius:4px;border:1px solid #444;background:#1a1a2e;color:#aaa;cursor:pointer;font-size:13px}
 .view-btn.active{background:#4fc3f7;color:#000;border-color:#4fc3f7}
 .time-buttons{display:flex;gap:6px}
@@ -31,6 +29,9 @@ h1{text-align:center;margin-bottom:20px;color:#fff}
 .nav{display:flex;gap:15px;margin-bottom:10px}
 .nav a{color:#4fc3f7;text-decoration:none;font-size:13px}
 select{padding:8px 12px;border-radius:4px;border:1px solid #444;background:#1a1a2e;color:#fff;font-size:13px}
+.filter-tag{padding:4px 10px;border-radius:4px;border:1px solid #555;background:#2a2a4a;color:#e0e0e0;cursor:pointer;font-size:12px}
+.filter-tag:hover{border-color:#4fc3f7}
+.filter-tag.hidden{opacity:0.4;text-decoration:line-through}
 </style>
 </head>
 <body>
@@ -47,13 +48,9 @@ select{padding:8px 12px;border-radius:4px;border:1px solid #444;background:#1a1a
       <option value="OSL">🇳🇴 Oslo Børs</option>
       <option value="STO">🇸🇪 Stockholm</option>
     </select>
-    <button class="btn btn-primary" onclick="loadAllData()">⬇️ Load All Data</button>
     <span id="status" style="color:#888;font-size:12px"></span>
   </div>
-  <div class="progress" id="progressBox" style="display:none">
-    <div class="progress-bar" id="progressBar" style="width:0%">0%</div>
-  </div>
-  <div class="row" style="margin-top:10px">
+  <div class="row">
     <span style="color:#aaa;font-size:12px">View:</span>
     <button class="view-btn active" id="vBtn-sectors" onclick="setView('sectors')">🏢 Sectors</button>
     <button class="view-btn" id="vBtn-industries" onclick="setView('industries')">🏭 Industries</button>
@@ -66,11 +63,18 @@ select{padding:8px 12px;border-radius:4px;border:1px solid #444;background:#1a1a
     <button class="time-btn" onclick="setTime('3Y',this)">3Y</button>
     <button class="time-btn" onclick="setTime('5Y',this)">5Y</button>
   </div>
+  <div class="row" style="margin-top:10px">
+    <button class="btn btn-primary" onclick="loadAllData()">⬇️ Load All Data</button>
+  </div>
+  <div class="progress" id="progressBox" style="display:none">
+    <div class="progress-bar" id="progressBar" style="width:0%">0%</div>
+  </div>
+  <div id="filterTags" style="margin-top:10px;display:flex;flex-wrap:wrap;gap:6px"></div>
 </div>
 
 <div class="chart-box"><canvas id="sectorChart"></canvas></div>
 <div class="msg msg-error" id="chartMsg"></div>
-<div class="msg msg-info">Shows average normalized performance per sector/industry. Load data first (takes ~30s for all stocks).</div>
+<div class="msg msg-info">Click sectors/industries to show/hide them. Load data first (~30s).</div>
 </div>
 
 <script>
@@ -78,6 +82,7 @@ var PROXY='https://yahoo.gretegrents.workers.dev/';
 var chart=null,timeRange='6M',viewMode='sectors';
 var allStockData={};
 var isLoading=false;
+var hiddenGroups={};
 
 var DB={
 "OSL":{
@@ -174,6 +179,8 @@ async function loadAllData(){
   document.getElementById('status').textContent='Loaded '+loaded+'/'+total+' stocks ✓';
   document.getElementById('progressBox').style.display='none';
   isLoading=false;
+  hiddenGroups={};
+  renderFilterTags();
   renderSectorChart();
 }
 
@@ -181,6 +188,8 @@ function setView(mode){
   viewMode=mode;
   document.querySelectorAll('.view-btn').forEach(function(b){b.classList.remove('active')});
   document.getElementById('vBtn-'+mode).classList.add('active');
+  hiddenGroups={};
+  renderFilterTags();
   if(Object.keys(allStockData).length>0)renderSectorChart();
 }
 
@@ -202,6 +211,35 @@ function getStartDate(){
   return d.toISOString().split('T')[0];
 }
 
+function renderFilterTags(){
+  var exchange=document.getElementById('selExchange').value;
+  var db=DB[exchange];
+  if(!db){document.getElementById('filterTags').innerHTML='';return;}
+  var groups=[];
+  if(viewMode==='sectors'){
+    groups=Object.keys(db);
+  }else{
+    Object.keys(db).forEach(function(sector){
+      Object.keys(db[sector]).forEach(function(ind){
+        if(groups.indexOf(ind)===-1)groups.push(ind);
+      });
+    });
+  }
+  var html='';
+  groups.sort().forEach(function(g){
+    var cls=hiddenGroups[g]?'filter-tag hidden':'filter-tag';
+    html+='<button class="'+cls+'" onclick="toggleGroup(\''+g+'\')">'+g+'</button>';
+  });
+  document.getElementById('filterTags').innerHTML=html;
+}
+
+function toggleGroup(group){
+  if(hiddenGroups[group])delete hiddenGroups[group];
+  else hiddenGroups[group]=true;
+  renderFilterTags();
+  if(Object.keys(allStockData).length>0)renderSectorChart();
+}
+
 function renderSectorChart(){
   var exchange=document.getElementById('selExchange').value;
   var mapping=getTickerMapping(exchange);
@@ -211,6 +249,7 @@ function renderSectorChart(){
   Object.keys(allStockData).forEach(function(ticker){
     if(!mapping[ticker])return;
     var groupKey=viewMode==='sectors'?mapping[ticker].sector:mapping[ticker].industry;
+    if(hiddenGroups[groupKey])return;
     if(!groups[groupKey])groups[groupKey]=[];
     
     var data=allStockData[ticker].filter(function(d){return d.date>=startDate});
@@ -220,7 +259,7 @@ function renderSectorChart(){
     groups[groupKey].push(normalized);
   });
   
-  var colors=['#4fc3f7','#ff6b6b','#69f0ae','#ffd54f','#ce93d8','#ff8a65','#80cbc4','#f48fb1','#aed581','#90a4ae','#fff176','#a1887f'];
+  var colors=['#4fc3f7','#ff6b6b','#69f0ae','#ffd54f','#ce93d8','#ff8a65','#80cbc4','#f48fb1','#aed581','#90a4ae','#fff176','#a1887f','#b39ddb','#ef9a9a','#80deea'];
   var datasets=[],labels=null;
   var idx=0;
   
@@ -257,6 +296,7 @@ function renderSectorChart(){
     document.getElementById('chartMsg').textContent='No data to display. Load data first.';
     return;
   }
+  document.getElementById('chartMsg').textContent='';
   
   if(chart)chart.destroy();
   chart=new Chart(document.getElementById('sectorChart'),{
