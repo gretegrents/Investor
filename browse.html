@@ -37,6 +37,7 @@ select{padding:8px 12px;border-radius:4px;border:1px solid #444;background:#1a1a
 label{font-size:12px;color:#aaa;margin-right:4px}
 .nav{text-align:right;margin-bottom:10px}
 .nav a{color:#4fc3f7;text-decoration:none;font-size:13px}
+input[type=text],textarea{padding:8px 12px;border-radius:4px;border:1px solid #444;background:#1a1a2e;color:#fff}
 </style>
 </head>
 <body>
@@ -62,20 +63,23 @@ label{font-size:12px;color:#aaa;margin-right:4px}
     </select>
   </div>
   <div class="row">
-  <input type="text" id="viewName" placeholder="View name" style="width:150px">
-  <button class="btn btn-small btn-secondary" onclick="saveView()">💾 Save</button>
-  <select id="savedViews" onchange="loadView()">
-    <option value="">— Saved Views —</option>
-  </select>
-  <button class="btn btn-small btn-secondary" onclick="deleteView()">🗑️</button>
-</div>
-<div class="row">
-  <textarea id="viewNotes" placeholder="Add a note (auto-timestamped)..." style="width:100%;height:40px;background:#1a1a2e;border:1px solid #444;color:#e0e0e0;border-radius:4px;padding:6px;font-size:12px;resize:vertical"></textarea>
-  <button class="btn btn-small btn-secondary" onclick="addNote()">📝 Add Note</button>
-</div>
-<div id="notesList" style="font-size:12px;color:#aaa;margin-top:6px"></div>
-
+    <button class="btn btn-primary" onclick="addAllFiltered()">Add All to Chart</button>
+    <button class="btn btn-secondary" onclick="clearAll()">Clear All</button>
+    <button class="btn btn-primary" onclick="fetchChart()">Load Chart</button>
   </div>
+  <div class="row">
+    <input type="text" id="viewName" placeholder="View name" style="width:150px">
+    <button class="btn btn-small btn-secondary" onclick="saveView()">💾 Save</button>
+    <select id="savedViews" onchange="loadView()">
+      <option value="">— Saved Views —</option>
+    </select>
+    <button class="btn btn-small btn-secondary" onclick="deleteView()">🗑️</button>
+  </div>
+  <div class="row">
+    <textarea id="viewNotes" placeholder="Add a note (auto-timestamped)..." style="width:100%;height:40px;resize:vertical"></textarea>
+    <button class="btn btn-small btn-secondary" onclick="addNote()">📝 Add Note</button>
+  </div>
+  <div id="notesList" style="font-size:12px;color:#aaa;margin-top:6px"></div>
   <div class="company-list" id="companyList"></div>
   <div class="tags" id="chartTags"></div>
   <div class="time-buttons">
@@ -98,182 +102,29 @@ var PROXY='https://yahoo.gretegrents.workers.dev/';
 var chart=null,timeRange='6M',chartData={},chartNames={};
 var tickers=[];
 
-// === STOCK DATABASE ===
 var DB={
 "OSL":{
-"Energy":{
-"Oil & Gas":[
-  {t:"EQNR.OL",n:"Equinor"},
-  {t:"AKRBP.OL",n:"Aker BP"},
-  {t:"VAR.OL",n:"Vår Energi"},
-  {t:"DNO.OL",n:"DNO"},
-  {t:"BNOR.OL",n:"BlueNord"},
-  {t:"BWE.OL",n:"BW Energy"}
-],
-"Renewables":[
-  {t:"SCATC.OL",n:"Scatec"},
-  {t:"BONHR.OL",n:"Bonheur"}
-]},
-"Shipping & Offshore":{
-"Tankers":[
-  {t:"FRO.OL",n:"Frontline"},
-  {t:"HAFNI.OL",n:"Hafnia"},
-  {t:"OET.OL",n:"Okeanis Eco Tankers"},
-  {t:"CAPT.OL",n:"Capital Tankers"},
-  {t:"BWLPG.OL",n:"BW LPG"},
-  {t:"ODF.OL",n:"Odfjell"}
-],
-"Offshore Services":[
-  {t:"SUBC.OL",n:"Subsea 7"},
-  {t:"AKSO.OL",n:"Aker Solutions"},
-  {t:"DOFG.OL",n:"DOF Group"},
-  {t:"BORR.OL",n:"Borr Drilling"},
-  {t:"ODL.OL",n:"Odfjell Drilling"},
-  {t:"PLSV.OL",n:"Paratus Energy"},
-  {t:"SOFF.OL",n:"Solstad Maritime"},
-  {t:"COSH.OL",n:"Constellation Oil Services"}
-],
-"Car Carriers":[
-  {t:"WAWI.OL",n:"Wallenius Wilhelmsen"},
-  {t:"HAUTO.OL",n:"Höegh Autoliners"}
-],
-"Container & Bulk":[
-  {t:"MPCC.OL",n:"MPC Container Ships"},
-  {t:"KCC.OL",n:"Klaveness Combination Carriers"},
-  {t:"HSHP.OL",n:"Himalaya Shipping"}
-]},
-"Seafood":{
-"Salmon":[
-  {t:"MOWI.OL",n:"Mowi"},
-  {t:"SALM.OL",n:"SalMar"},
-  {t:"LSG.OL",n:"Lerøy Seafood"},
-  {t:"BAKKA.OL",n:"Bakkafrost"},
-  {t:"AUSS.OL",n:"Austevoll Seafood"}
-]},
-"Finance":{
-"Banks":[
-  {t:"DNB.OL",n:"DNB Bank"},
-  {t:"SB1NO.OL",n:"SpareBank 1 Sør-Norge"},
-  {t:"SBNOR.OL",n:"Sparebanken Norge"},
-  {t:"MING.OL",n:"SpareBank 1 SMN"},
-  {t:"SPOL.OL",n:"SpareBank 1 Østlandet"},
-  {t:"NONG.OL",n:"SpareBank 1 Nord-Norge"}
-],
-"Insurance":[
-  {t:"GJF.OL",n:"Gjensidige Forsikring"},
-  {t:"STB.OL",n:"Storebrand"},
-  {t:"PROT.OL",n:"Protector Forsikring"}
-]},
-"Technology":{
-"Semiconductors":[
-  {t:"NOD.OL",n:"Nordic Semiconductor"}
-],
-"Software & IT":[
-  {t:"PEXIP.OL",n:"Pexip"},
-  {t:"AUTO.OL",n:"AutoStore"},
-  {t:"ATEA.OL",n:"Atea"},
-  {t:"LINK.OL",n:"LINK Mobility"},
-  {t:"SNTIA.OL",n:"Sentia"}
-],
-"Electronics":[
-  {t:"KIT.OL",n:"Kitron"},
-  {t:"NORBT.OL",n:"Norbit"}
-]},
-"Industrials":{
-"Defense & Aerospace":[
-  {t:"KOG.OL",n:"Kongsberg Gruppen"},
-  {t:"KMAR.OL",n:"Kongsberg Maritime"}
-],
-"Materials & Chemicals":[
-  {t:"NHY.OL",n:"Norsk Hydro"},
-  {t:"YAR.OL",n:"Yara International"},
-  {t:"ELK.OL",n:"Elkem"},
-  {t:"BRG.OL",n:"Borregaard"}
-],
-"Construction & Engineering":[
-  {t:"VEI.OL",n:"Veidekke"},
-  {t:"AFG.OL",n:"AF Gruppen"},
-  {t:"ENDUR.OL",n:"Endúr"},
-  {t:"NORCON.OL",n:"Norconsult"}
-],
-"Recycling & Environment":[
-  {t:"TOM.OL",n:"Tomra Systems"}
-]},
-"Consumer":{
-"Retail":[
-  {t:"ORK.OL",n:"Orkla"},
-  {t:"EPRE.OL",n:"Europris"}
-],
-"Fitness & Leisure":[
-  {t:"SATS.OL",n:"Sats"}
-],
-"Packaging":[
-  {t:"ELO.OL",n:"Elopak"}
-]},
-"Telecom & Media":{
-"Telecom":[
-  {t:"TEL.OL",n:"Telenor"}
-],
-"Marketplaces & Media":[
-  {t:"VEND.OL",n:"Vend Marketplaces"}
-]},
-"Real Estate":{
-"Commercial":[
-  {t:"ENTRA.OL",n:"Entra"},
-  {t:"PUBLI.OL",n:"Public Property Invest"}
-]},
-"Oil Services & Seismic":{
-"Seismic & Data":[
-  {t:"TGS.OL",n:"TGS"},
-  {t:"CADLR.OL",n:"Cadeler"}
-]},
-"Debt Collection":{
-"Financial Services":[
-  {t:"B2I.OL",n:"B2 Impact"}
-]}
+"Energy":{"Oil & Gas":[{t:"EQNR.OL",n:"Equinor"},{t:"AKRBP.OL",n:"Aker BP"},{t:"VAR.OL",n:"Vår Energi"},{t:"DNO.OL",n:"DNO"},{t:"BNOR.OL",n:"BlueNord"},{t:"BWE.OL",n:"BW Energy"}],"Renewables":[{t:"SCATC.OL",n:"Scatec"},{t:"BONHR.OL",n:"Bonheur"}]},
+"Shipping & Offshore":{"Tankers":[{t:"FRO.OL",n:"Frontline"},{t:"HAFNI.OL",n:"Hafnia"},{t:"OET.OL",n:"Okeanis Eco Tankers"},{t:"BWLPG.OL",n:"BW LPG"},{t:"ODF.OL",n:"Odfjell"}],"Offshore Services":[{t:"SUBC.OL",n:"Subsea 7"},{t:"AKSO.OL",n:"Aker Solutions"},{t:"DOFG.OL",n:"DOF Group"},{t:"BORR.OL",n:"Borr Drilling"},{t:"ODL.OL",n:"Odfjell Drilling"},{t:"PLSV.OL",n:"Paratus Energy"},{t:"SOFF.OL",n:"Solstad Maritime"}],"Car Carriers":[{t:"WAWI.OL",n:"Wallenius Wilhelmsen"},{t:"HAUTO.OL",n:"Höegh Autoliners"}],"Container & Bulk":[{t:"MPCC.OL",n:"MPC Container Ships"},{t:"KCC.OL",n:"Klaveness Combination Carriers"},{t:"HSHP.OL",n:"Himalaya Shipping"}]},
+"Seafood":{"Salmon":[{t:"MOWI.OL",n:"Mowi"},{t:"SALM.OL",n:"SalMar"},{t:"LSG.OL",n:"Lerøy Seafood"},{t:"BAKKA.OL",n:"Bakkafrost"},{t:"AUSS.OL",n:"Austevoll Seafood"}]},
+"Finance":{"Banks":[{t:"DNB.OL",n:"DNB Bank"},{t:"SB1NO.OL",n:"SpareBank 1 Sør-Norge"},{t:"SBNOR.OL",n:"Sparebanken Norge"},{t:"MING.OL",n:"SpareBank 1 SMN"},{t:"SPOL.OL",n:"SpareBank 1 Østlandet"},{t:"NONG.OL",n:"SpareBank 1 Nord-Norge"}],"Insurance":[{t:"GJF.OL",n:"Gjensidige Forsikring"},{t:"STB.OL",n:"Storebrand"},{t:"PROT.OL",n:"Protector Forsikring"}]},
+"Technology":{"Semiconductors":[{t:"NOD.OL",n:"Nordic Semiconductor"}],"Software & IT":[{t:"PEXIP.OL",n:"Pexip"},{t:"AUTO.OL",n:"AutoStore"},{t:"ATEA.OL",n:"Atea"},{t:"LINK.OL",n:"LINK Mobility"},{t:"SNTIA.OL",n:"Sentia"}],"Electronics":[{t:"KIT.OL",n:"Kitron"},{t:"NORBT.OL",n:"Norbit"}]},
+"Industrials":{"Defense & Aerospace":[{t:"KOG.OL",n:"Kongsberg Gruppen"},{t:"KMAR.OL",n:"Kongsberg Maritime"}],"Materials & Chemicals":[{t:"NHY.OL",n:"Norsk Hydro"},{t:"YAR.OL",n:"Yara International"},{t:"ELK.OL",n:"Elkem"},{t:"BRG.OL",n:"Borregaard"}],"Construction & Engineering":[{t:"VEI.OL",n:"Veidekke"},{t:"AFG.OL",n:"AF Gruppen"},{t:"ENDUR.OL",n:"Endúr"},{t:"NORCON.OL",n:"Norconsult"}],"Recycling":[{t:"TOM.OL",n:"Tomra Systems"}]},
+"Consumer":{"Retail":[{t:"ORK.OL",n:"Orkla"},{t:"EPRE.OL",n:"Europris"}],"Fitness":[{t:"SATS.OL",n:"Sats"}],"Packaging":[{t:"ELO.OL",n:"Elopak"}]},
+"Telecom & Media":{"Telecom":[{t:"TEL.OL",n:"Telenor"}],"Marketplaces":[{t:"VEND.OL",n:"Vend Marketplaces"}]},
+"Real Estate":{"Commercial":[{t:"ENTRA.OL",n:"Entra"},{t:"PUBLI.OL",n:"Public Property Invest"}]},
+"Oil Services":{"Seismic & Data":[{t:"TGS.OL",n:"TGS"},{t:"CADLR.OL",n:"Cadeler"}]},
+"Financial Services":{"Debt Collection":[{t:"B2I.OL",n:"B2 Impact"}]}
 },
 "STO":{
-"Technology":{
-"Software":[
-  {t:"ERIC-B.ST",n:"Ericsson"},
-  {t:"SINCH.ST",n:"Sinch"},
-  {t:"HEXAB.ST",n:"Hexagon"}
-],
-"Gaming":[
-  {t:"EMBRAC-B.ST",n:"Embracer Group"}
-]},
-"Finance":{
-"Banks":[
-  {t:"SEB-A.ST",n:"SEB"},
-  {t:"SWED-A.ST",n:"Swedbank"},
-  {t:"SHB-A.ST",n:"Handelsbanken"},
-  {t:"NDA-SE.ST",n:"Nordea"}
-]},
-"Industrials":{
-"Engineering":[
-  {t:"VOLV-B.ST",n:"Volvo"},
-  {t:"SAND.ST",n:"Sandvik"},
-  {t:"ATCO-A.ST",n:"Atlas Copco"},
-  {t:"ALFA.ST",n:"Alfa Laval"}
-],
-"Defense":[
-  {t:"SAAB-B.ST",n:"Saab"}
-]},
-"Consumer":{
-"Fashion":[
-  {t:"HM-B.ST",n:"H&M"}
-],
-"Furniture":[
-  {t:"IKEA.ST",n:"IKEA (Inter IKEA)"}
-]},
-"Healthcare":{
-"Pharma":[
-  {t:"AZN.ST",n:"AstraZeneca"}
-]}
+"Technology":{"Software":[{t:"ERIC-B.ST",n:"Ericsson"},{t:"SINCH.ST",n:"Sinch"},{t:"HEXAB.ST",n:"Hexagon"}],"Gaming":[{t:"EMBRAC-B.ST",n:"Embracer Group"}]},
+"Finance":{"Banks":[{t:"SEB-A.ST",n:"SEB"},{t:"SWED-A.ST",n:"Swedbank"},{t:"SHB-A.ST",n:"Handelsbanken"},{t:"NDA-SE.ST",n:"Nordea"}]},
+"Industrials":{"Engineering":[{t:"VOLV-B.ST",n:"Volvo"},{t:"SAND.ST",n:"Sandvik"},{t:"ATCO-A.ST",n:"Atlas Copco"},{t:"ALFA.ST",n:"Alfa Laval"}],"Defense":[{t:"SAAB-B.ST",n:"Saab"}]},
+"Consumer":{"Fashion":[{t:"HM-B.ST",n:"H&M"}]},
+"Healthcare":{"Pharma":[{t:"AZN.ST",n:"AstraZeneca"}]}
 }
 };
 
-// === FILTER LOGIC ===
 function updateSectors(){
   var ex=document.getElementById('selExchange').value;
   var sel=document.getElementById('selSector');
@@ -281,9 +132,7 @@ function updateSectors(){
   document.getElementById('selIndustry').innerHTML='<option value="">— All Industries —</option>';
   document.getElementById('companyList').innerHTML='';
   if(!ex||!DB[ex])return;
-  Object.keys(DB[ex]).forEach(function(sector){
-    sel.innerHTML+='<option value="'+sector+'">'+sector+'</option>';
-  });
+  Object.keys(DB[ex]).forEach(function(sector){sel.innerHTML+='<option value="'+sector+'">'+sector+'</option>';});
 }
 
 function updateIndustries(){
@@ -293,9 +142,7 @@ function updateIndustries(){
   sel.innerHTML='<option value="">— All Industries —</option>';
   document.getElementById('companyList').innerHTML='';
   if(!ex||!sec||!DB[ex]||!DB[ex][sec])return;
-  Object.keys(DB[ex][sec]).forEach(function(ind){
-    sel.innerHTML+='<option value="'+ind+'">'+ind+'</option>';
-  });
+  Object.keys(DB[ex][sec]).forEach(function(ind){sel.innerHTML+='<option value="'+ind+'">'+ind+'</option>';});
   updateCompanies();
 }
 
@@ -306,66 +153,47 @@ function updateCompanies(){
   var list=document.getElementById('companyList');
   list.innerHTML='';
   if(!ex||!sec||!DB[ex]||!DB[ex][sec])return;
-  
   var companies=[];
-  if(ind&&DB[ex][sec][ind]){
-    companies=DB[ex][sec][ind];
-  }else{
-    Object.keys(DB[ex][sec]).forEach(function(i){
-      companies=companies.concat(DB[ex][sec][i]);
-    });
-  }
-  
+  if(ind&&DB[ex][sec][ind]){companies=DB[ex][sec][ind];}
+  else{Object.keys(DB[ex][sec]).forEach(function(i){companies=companies.concat(DB[ex][sec][i]);});}
   companies.forEach(function(c){
     var selected=tickers.indexOf(c.t)!==-1;
-    list.innerHTML+='<button class="company-btn'+(selected?' selected':'')+'" onclick="toggleCompany(\''+c.t+'\',\''+c.n+'\')">'+c.t.replace('.OL','').replace('.ST','')+' — '+c.n+'</button>';
+    list.innerHTML+='<button class="company-btn'+(selected?' selected':'')+'" onclick="toggleCompany(\''+c.t+'\',\''+c.n.replace(/'/g,"\\'")+'\')">'+c.t.replace('.OL','').replace('.ST','')+' — '+c.n+'</button>';
   });
 }
 
 function toggleCompany(ticker,name){
   var idx=tickers.indexOf(ticker);
-  if(idx===-1){
-    tickers.push(ticker);
-    chartNames[ticker]=name;
-  }else{
-    tickers.splice(idx,1);
-    delete chartNames[ticker];
-    delete chartData[ticker];
-  }
-  renderTags();
-  updateCompanies();
+  if(idx===-1){tickers.push(ticker);chartNames[ticker]=name;}
+  else{tickers.splice(idx,1);delete chartNames[ticker];delete chartData[ticker];}
+  renderTags();updateCompanies();
 }
 
 function addAllFiltered(){
-  var btns=document.querySelectorAll('.company-btn');
-  btns.forEach(function(btn){
-    var text=btn.textContent;
-    var ticker=btn.getAttribute('onclick').match(/'([^']+)'/)[1];
-    var name=btn.getAttribute('onclick').match(/'([^']+)'/g)[1].replace(/'/g,'');
-    if(tickers.indexOf(ticker)===-1){
-      tickers.push(ticker);
-      chartNames[ticker]=name;
-    }
+  var ex=document.getElementById('selExchange').value;
+  var sec=document.getElementById('selSector').value;
+  var ind=document.getElementById('selIndustry').value;
+  if(!ex||!sec||!DB[ex]||!DB[ex][sec])return;
+  var companies=[];
+  if(ind&&DB[ex][sec][ind]){companies=DB[ex][sec][ind];}
+  else{Object.keys(DB[ex][sec]).forEach(function(i){companies=companies.concat(DB[ex][sec][i]);});}
+  companies.forEach(function(c){
+    if(tickers.indexOf(c.t)===-1){tickers.push(c.t);chartNames[c.t]=c.n;}
   });
-  renderTags();
-  updateCompanies();
+  renderTags();updateCompanies();
 }
 
 function clearAll(){
-  tickers=[];
-  chartData={};
-  chartNames={};
-  renderTags();
-  updateCompanies();
+  tickers=[];chartData={};chartNames={};
+  renderTags();updateCompanies();
   if(chart){chart.destroy();chart=null;}
+  document.getElementById('notesList').innerHTML='';
 }
 
 function removeTag(ticker){
   tickers=tickers.filter(function(t){return t!==ticker});
-  delete chartData[ticker];
-  delete chartNames[ticker];
-  renderTags();
-  updateCompanies();
+  delete chartData[ticker];delete chartNames[ticker];
+  renderTags();updateCompanies();
   if(Object.keys(chartData).length>0)renderChart();
   else if(chart){chart.destroy();chart=null;}
 }
@@ -379,7 +207,6 @@ function renderTags(){
   document.getElementById('chartTags').innerHTML=html;
 }
 
-// === TIME ===
 function setTime(r,btn){
   timeRange=r;
   document.querySelectorAll('.time-btn').forEach(function(b){b.classList.remove('active')});
@@ -387,13 +214,11 @@ function setTime(r,btn){
   if(Object.keys(chartData).length>0)renderChart();
 }
 
-// === CHART ===
 function fetchChart(){
   if(!tickers.length){document.getElementById('chartMsg').textContent='Select companies first';return}
   document.getElementById('chartMsg').textContent='Loading '+tickers.length+' stocks...';
   chartData={};
   var loaded=0;
-  
   var now=Math.floor(Date.now()/1000);
   var start=new Date();
   if(timeRange==='1M')start.setMonth(start.getMonth()-1);
@@ -403,7 +228,7 @@ function fetchChart(){
   else if(timeRange==='3Y')start.setFullYear(start.getFullYear()-3);
   else if(timeRange==='5Y')start.setFullYear(start.getFullYear()-5);
   var period1=Math.floor(start.getTime()/1000);
-  
+
   tickers.forEach(function(ticker){
     var url=PROXY+'?symbol='+ticker+'&period1='+period1+'&period2='+now+'&interval=1d';
     fetch(url).then(function(r){return r.json()}).then(function(data){
@@ -424,10 +249,7 @@ function fetchChart(){
       }
       loaded++;
       if(loaded===tickers.length){
-        if(Object.keys(chartData).length>0){
-          document.getElementById('chartMsg').textContent='';
-          renderChart();
-        }
+        if(Object.keys(chartData).length>0){document.getElementById('chartMsg').textContent='';renderChart();}
       }
     }).catch(function(e){
       document.getElementById('chartMsg').textContent+='\n'+ticker+': '+e.message;
@@ -439,7 +261,6 @@ function fetchChart(){
 function renderChart(){
   var colors=['#4fc3f7','#ff6b6b','#69f0ae','#ffd54f','#ce93d8','#ff8a65','#80cbc4','#f48fb1','#aed581','#90a4ae'];
   var datasets=[],labels=null;
-  
   Object.keys(chartData).forEach(function(ticker,idx){
     var data=chartData[ticker];
     if(!data.length)return;
@@ -450,21 +271,16 @@ function renderChart(){
       data:data.map(function(d){return d.close/base}),
       borderColor:colors[idx%colors.length],
       backgroundColor:'transparent',
-      borderWidth:2,
-      pointRadius:0,
-      tension:0.1
+      borderWidth:2,pointRadius:0,tension:0.1
     });
   });
-  
   if(!labels)return;
   if(chart)chart.destroy();
-  
   chart=new Chart(document.getElementById('priceChart'),{
     type:'line',
     data:{labels:labels,datasets:datasets},
     options:{
-      responsive:true,
-      maintainAspectRatio:false,
+      responsive:true,maintainAspectRatio:false,
       interaction:{mode:'index',intersect:false},
       plugins:{
         legend:{position:'right',labels:{color:'#e0e0e0',usePointStyle:true,font:{size:11}}},
@@ -477,6 +293,76 @@ function renderChart(){
     }
   });
 }
+
+// === SAVED VIEWS WITH NOTES ===
+function saveView(){
+  var name=document.getElementById('viewName').value.trim();
+  if(!name){alert('Enter a view name');return}
+  if(!tickers.length){alert('Add tickers first');return}
+  var views=JSON.parse(localStorage.getItem('browseViews')||'{}');
+  var existingNotes=(views[name]&&views[name].notes)||[];
+  views[name]={tickers:tickers.slice(),names:Object.assign({},chartNames),notes:existingNotes};
+  localStorage.setItem('browseViews',JSON.stringify(views));
+  document.getElementById('viewName').value='';
+  loadViewList();
+}
+
+function loadView(){
+  var sel=document.getElementById('savedViews');
+  var name=sel.value;
+  if(!name)return;
+  var views=JSON.parse(localStorage.getItem('browseViews')||'{}');
+  if(views[name]){
+    tickers=views[name].tickers.slice();
+    chartNames=Object.assign({},views[name].names||{});
+    renderTags();updateCompanies();renderNotes(name);fetchChart();
+  }
+}
+
+function deleteView(){
+  var sel=document.getElementById('savedViews');
+  var name=sel.value;
+  if(!name){alert('Select a view to delete');return}
+  var views=JSON.parse(localStorage.getItem('browseViews')||'{}');
+  delete views[name];
+  localStorage.setItem('browseViews',JSON.stringify(views));
+  loadViewList();
+  document.getElementById('notesList').innerHTML='';
+}
+
+function loadViewList(){
+  var views=JSON.parse(localStorage.getItem('browseViews')||'{}');
+  var sel=document.getElementById('savedViews');
+  sel.innerHTML='<option value="">— Saved Views —</option>';
+  Object.keys(views).forEach(function(name){
+    sel.innerHTML+='<option value="'+name+'">'+name+' ('+views[name].tickers.length+')</option>';
+  });
+}
+
+function addNote(){
+  var sel=document.getElementById('savedViews').value;
+  if(!sel){alert('Save or select a view first');return}
+  var text=document.getElementById('viewNotes').value.trim();
+  if(!text)return;
+  var views=JSON.parse(localStorage.getItem('browseViews')||'{}');
+  if(!views[sel].notes)views[sel].notes=[];
+  views[sel].notes.push({time:new Date().toLocaleString(),text:text});
+  localStorage.setItem('browseViews',JSON.stringify(views));
+  document.getElementById('viewNotes').value='';
+  renderNotes(sel);
+}
+
+function renderNotes(name){
+  var views=JSON.parse(localStorage.getItem('browseViews')||'{}');
+  var notes=(views[name]&&views[name].notes)||[];
+  var html='';
+  notes.forEach(function(n){
+    html+='<div style="border-bottom:1px solid #333;padding:4px 0"><span style="color:#4fc3f7">'+n.time+'</span> — '+n.text+'</div>';
+  });
+  document.getElementById('notesList').innerHTML=html;
+}
+
+loadViewList();
 </script>
 </body>
 </html>
