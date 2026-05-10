@@ -189,18 +189,36 @@ function fetchChart(){
   chartData={};
   chartNames={};
   var loaded=0;
-  var startDate=getStart();
+  
+  var now=Math.floor(Date.now()/1000);
+  var start=new Date();
+  if(timeRange==='1M')start.setMonth(start.getMonth()-1);
+  else if(timeRange==='3M')start.setMonth(start.getMonth()-3);
+  else if(timeRange==='6M')start.setMonth(start.getMonth()-6);
+  else if(timeRange==='1Y')start.setFullYear(start.getFullYear()-1);
+  else if(timeRange==='3Y')start.setFullYear(start.getFullYear()-3);
+  else if(timeRange==='5Y')start.setFullYear(start.getFullYear()-5);
+  var period1=Math.floor(start.getTime()/1000);
   
   tickers.forEach(function(ticker){
-    var url='https://api.twelvedata.com/time_series?symbol='+ticker+'&interval=1day&start_date='+startDate+'&outputsize='+getOutputSize()+'&apikey='+API_KEY;
+     var url='https://yahoo.gretegrents.workers.dev/?symbol='+ticker+'&period1='+period1+'&period2='+now+'&interval=1d';
     fetch(url).then(function(r){return r.json()}).then(function(data){
-      if(data.status==='error'){
-        document.getElementById('chartMsg').textContent+='\n'+ticker+': '+data.message;
-      }else if(data.values){
-        chartData[ticker]=data.values.map(function(v){
-          return{date:v.datetime,close:parseFloat(v.close)};
-        }).reverse();
-        if(data.meta&&data.meta.name)chartNames[ticker]=data.meta.name;
+      if(data.chart&&data.chart.result&&data.chart.result[0]){
+        var result=data.chart.result[0];
+        var timestamps=result.timestamp;
+        var closes=result.indicators.quote[0].close;
+        var name=result.meta.shortName||result.meta.symbol;
+        chartNames[ticker]=name;
+        chartData[ticker]=[];
+        for(var i=0;i<timestamps.length;i++){
+          if(closes[i]!==null){
+            var d=new Date(timestamps[i]*1000);
+            var dateStr=d.toISOString().split('T')[0];
+            chartData[ticker].push({date:dateStr,close:closes[i]});
+          }
+        }
+      }else{
+        document.getElementById('chartMsg').textContent+='\n'+ticker+': No data found';
       }
       loaded++;
       if(loaded===tickers.length){
