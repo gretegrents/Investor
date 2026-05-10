@@ -18,6 +18,7 @@ h1{text-align:center;margin-bottom:20px;color:#fff}
 .section{background:#2a2a4a;padding:15px;border-radius:8px;margin-bottom:20px}
 .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:10px}
 input[type=text]{padding:8px 12px;border-radius:4px;border:1px solid #444;background:#1a1a2e;color:#fff;width:250px}
+select{padding:6px;border-radius:4px;border:1px solid #444;background:#1a1a2e;color:#fff;width:180px}
 .btn{padding:8px 16px;border-radius:4px;border:none;cursor:pointer;font-size:13px}
 .btn-primary{background:#4fc3f7;color:#000}
 .btn-primary:hover{background:#81d4fa}
@@ -43,11 +44,6 @@ textarea.notes{width:100%;height:50px;background:#1a1a2e;border:1px solid #444;c
 .tag{display:flex;align-items:center;gap:4px;background:#3a3a5a;border:1px solid #555;border-radius:16px;padding:4px 10px;font-size:12px;color:#e0e0e0}
 .tag .x{cursor:pointer;color:#ff6b6b;font-weight:bold;margin-left:4px;font-size:14px}
 .tag .x:hover{color:#ff0000}
-.fin-card{background:#2a2a4a;border-radius:8px;padding:15px;margin-bottom:15px}
-.fin-card h3{color:#4fc3f7;margin-bottom:10px;font-size:14px}
-.fin-row{display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid #333;font-size:13px}
-.fin-row span:first-child{color:#aaa}
-.fin-row span:last-child{color:#fff}
 </style>
 </head>
 <body>
@@ -55,7 +51,7 @@ textarea.notes{width:100%;height:50px;background:#1a1a2e;border:1px solid #444;c
 <h1>Stock Comparison Tool</h1>
 
 <div class="section">
-  <span style="color:#888;font-size:12px">Powered by Twelve Data (800 calls/day)</span>
+  <span style="color:#888;font-size:12px">Chart: Yahoo Finance via proxy (unlimited) | Valuation: Twelve Data (800/day)</span>
 </div>
 
 <div class="tabs">
@@ -80,10 +76,18 @@ textarea.notes{width:100%;height:50px;background:#1a1a2e;border:1px solid #444;c
       <button class="time-btn" onclick="setTime('3Y',this)">3Y</button>
       <button class="time-btn" onclick="setTime('5Y',this)">5Y</button>
     </div>
+    <div class="row" style="margin-top:10px">
+      <input type="text" id="viewName" placeholder="View name" style="width:150px">
+      <button class="btn btn-small btn-secondary" onclick="saveView()">💾 Save</button>
+      <select id="savedViews" onchange="loadView()">
+        <option value="">— Saved Views —</option>
+      </select>
+      <button class="btn btn-small btn-secondary" onclick="deleteView()">🗑️</button>
+    </div>
   </div>
   <div class="chart-box"><canvas id="priceChart"></canvas></div>
   <div class="msg msg-error" id="chartMsg"></div>
-  <div class="msg msg-info">Prices normalized to 100% at start date for comparison.</div>
+  <div class="msg msg-info">Prices normalized to 100% at start date. Exchange suffixes: 🇳🇴 .OL (Oslo) | 🇸🇪 .ST (Stockholm) | 🇫🇮 .HE (Helsinki) | 🇩🇰 .CO (Copenhagen) | 🇺🇸 no suffix (US)</div>
 </div>
 
 <div id="tab-valuation" class="tab-content">
@@ -107,12 +111,13 @@ textarea.notes{width:100%;height:50px;background:#1a1a2e;border:1px solid #444;c
       <button class="btn btn-primary" onclick="fetchFinancials()">Load Financials</button>
     </div>
   </div>
-  <div id="finData"><div class="msg msg-info">Balance sheet requires Twelve Data Pro plan. Showing available metrics from statistics endpoint instead.</div></div>
+  <div id="finData"><div class="msg msg-info">Shows available metrics from Twelve Data statistics endpoint.</div></div>
 </div>
 </div>
 
 <script>
 var API_KEY='a9dbe0a930ff4e08a0856285c50ec908';
+var PROXY='https://yahoo.gretegrents.workers.dev/';
 var chart=null,timeRange='6M',chartData={},chartNames={};
 var tickers=[];
 
@@ -123,7 +128,6 @@ function switchTab(t){
   document.getElementById('tabBtn-'+t).classList.add('active');
 }
 
-// --- Tags ---
 function addTag(){
   var input=document.getElementById('chartInput');
   var val=input.value.trim().toUpperCase();
@@ -149,13 +153,12 @@ function removeTag(ticker){
 function renderTags(){
   var html='';
   tickers.forEach(function(t){
-    var name=chartNames[t]?(' — '+chartNames[t]):'';
+    var name=chartNames[t]?' — '+chartNames[t]:'';
     html+='<div class="tag">'+t+name+'<span class="x" onclick="removeTag(\''+t+'\')">×</span></div>';
   });
   document.getElementById('chartTags').innerHTML=html;
 }
 
-// --- Time ---
 function setTime(r,btn){
   timeRange=r;
   document.querySelectorAll('.time-btn').forEach(function(b){b.classList.remove('active')});
@@ -163,19 +166,6 @@ function setTime(r,btn){
   if(Object.keys(chartData).length>0)renderChart();
 }
 
-function getStart(){
-  var d=new Date();
-  if(timeRange==='1M')d.setMonth(d.getMonth()-1);
-  else if(timeRange==='3M')d.setMonth(d.getMonth()-3);
-  else if(timeRange==='6M')d.setMonth(d.getMonth()-6);
-  else if(timeRange==='1Y')d.setFullYear(d.getFullYear()-1);
-  else if(timeRange==='3Y')d.setFullYear(d.getFullYear()-3);
-  else if(timeRange==='5Y')d.setFullYear(d.getFullYear()-5);
-  return d.toISOString().split('T')[0];
-}
-
-
-// --- Chart ---
 function fetchChart(){
   if(!tickers.length){document.getElementById('chartMsg').textContent='Add at least one ticker';return}
   document.getElementById('chartMsg').textContent='Loading...';
@@ -194,7 +184,7 @@ function fetchChart(){
   var period1=Math.floor(start.getTime()/1000);
   
   tickers.forEach(function(ticker){
-     var url='https://yahoo.gretegrents.workers.dev/?symbol='+ticker+'&period1='+period1+'&period2='+now+'&interval=1d';
+    var url=PROXY+'?symbol='+ticker+'&period1='+period1+'&period2='+now+'&interval=1d';
     fetch(url).then(function(r){return r.json()}).then(function(data){
       if(data.chart&&data.chart.result&&data.chart.result[0]){
         var result=data.chart.result[0];
@@ -270,6 +260,49 @@ function renderChart(){
         y:{ticks:{color:'#888',callback:function(v){return(v*100).toFixed(0)+'%'}},grid:{color:'#333'}}
       }
     }
+  });
+}
+
+// --- Saved Views ---
+function saveView(){
+  var name=document.getElementById('viewName').value.trim();
+  if(!name){alert('Enter a view name');return}
+  if(!tickers.length){alert('Add tickers first');return}
+  var views=JSON.parse(localStorage.getItem('stockViews')||'{}');
+  views[name]=tickers.slice();
+  localStorage.setItem('stockViews',JSON.stringify(views));
+  document.getElementById('viewName').value='';
+  loadViewList();
+}
+
+function loadView(){
+  var sel=document.getElementById('savedViews');
+  var name=sel.value;
+  if(!name)return;
+  var views=JSON.parse(localStorage.getItem('stockViews')||'{}');
+  if(views[name]){
+    tickers=views[name].slice();
+    renderTags();
+    fetchChart();
+  }
+}
+
+function deleteView(){
+  var sel=document.getElementById('savedViews');
+  var name=sel.value;
+  if(!name){alert('Select a view to delete');return}
+  var views=JSON.parse(localStorage.getItem('stockViews')||'{}');
+  delete views[name];
+  localStorage.setItem('stockViews',JSON.stringify(views));
+  loadViewList();
+}
+
+function loadViewList(){
+  var views=JSON.parse(localStorage.getItem('stockViews')||'{}');
+  var sel=document.getElementById('savedViews');
+  sel.innerHTML='<option value="">— Saved Views —</option>';
+  Object.keys(views).forEach(function(name){
+    sel.innerHTML+='<option value="'+name+'">'+name+' ('+views[name].length+')</option>';
   });
 }
 
@@ -364,9 +397,9 @@ function fetchFinancials(){
     var sp=s.stock_price_summary||{};
     var name=d.meta?d.meta.name:ticker;
     
-    var h='<div class="fin-card"><h3>'+ticker+' — '+name+'</h3>';
-    h+='<table><tr><th style="text-align:left">Metric</th><th>Value</th></tr>';
+    var h='<table><tr><th style="text-align:left">Metric</th><th>Value</th></tr>';
     var items=[
+      ['Company',name],
       ['Market Cap',v.market_capitalization?fmt(parseFloat(v.market_capitalization)):'-'],
       ['Enterprise Value',v.enterprise_value?fmt(parseFloat(v.enterprise_value)):'-'],
       ['Trailing P/E',v.trailing_pe||'-'],
@@ -392,7 +425,7 @@ function fetchFinancials(){
     items.forEach(function(item){
       h+='<tr><td style="text-align:left">'+item[0]+'</td><td>'+item[1]+'</td></tr>';
     });
-    h+='</table></div>';
+    h+='</table>';
     document.getElementById('finData').innerHTML=h;
   }).catch(function(e){
     document.getElementById('finData').innerHTML='<div class="msg msg-error">Error: '+e.message+'</div>';
@@ -420,6 +453,9 @@ function exportPDF(){
   w.document.write('<html><head><title>Stocks</title><style>table{border-collapse:collapse;width:100%}th,td{border:1px solid #ccc;padding:8px;text-align:center;font-size:12px}th{background:#f0f0f0}</style></head><body>'+c+'</body></html>');
   w.document.close();w.print();
 }
+
+// Init
+loadViewList();
 </script>
 </body>
 </html>
