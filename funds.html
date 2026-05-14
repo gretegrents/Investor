@@ -101,7 +101,7 @@ td{color:#e0e0e0}
 <div id="returnsTable"></div>
 <div class="msg msg-info" style="margin-top:10px">
   All funds shown in their trading currency. ETFs from US providers are in USD.
-  Performance is price return only (dividends not included in chart).
+  Nordic mutual funds are not available on Yahoo Finance — use ETFs instead.
 </div>
 </div>
 
@@ -115,7 +115,6 @@ var FUNDS={
   "Equity":[
     {t:"ILF",n:"iShares Latin America 40 ETF"},
     {t:"FLLA",n:"Franklin FTSE Latin America ETF"},
-    {t:"GML",n:"SPDR S&P Emerging Latin America ETF"},
     {t:"EWZ",n:"iShares MSCI Brazil ETF"},
     {t:"EWW",n:"iShares MSCI Mexico ETF"},
     {t:"ECH",n:"iShares MSCI Chile ETF"},
@@ -163,10 +162,6 @@ var FUNDS={
     {t:"EWP",n:"iShares MSCI Spain ETF"},
     {t:"EWL",n:"iShares MSCI Switzerland ETF"},
     {t:"EWN",n:"iShares MSCI Netherlands ETF"},
-    {t:"NORW",n:"Global X MSCI Norway ETF"},
-    {t:"EWD",n:"iShares MSCI Sweden ETF"},
-    {t:"EDEN",n:"iShares MSCI Denmark ETF"},
-    {t:"EFNL",n:"iShares MSCI Finland ETF"},
     {t:"EPOL",n:"iShares MSCI Poland ETF"}
   ],
   "Bond":[
@@ -229,7 +224,7 @@ var FUNDS={
     {t:"UAE",n:"iShares MSCI UAE ETF"},
     {t:"QAT",n:"iShares MSCI Qatar ETF"},
     {t:"AFK",n:"VanEck Africa Index ETF"},
-    {t:"FM",n:"iShares MSCI Frontier & Select EM ETF"}
+    {t:"FM",n:"iShares MSCI Frontier and Select EM ETF"}
   ],
   "Bond":[
     {t:"EMB",n:"iShares J.P. Morgan USD EM Bond"},
@@ -242,16 +237,15 @@ var FUNDS={
     {t:"EWD",n:"iShares MSCI Sweden ETF"},
     {t:"EDEN",n:"iShares MSCI Denmark ETF"},
     {t:"EFNL",n:"iShares MSCI Finland ETF"},
-    {t:"FNOR.CO",n:"Franklin FTSE Norway ETF"},
     {t:"GXF",n:"Global X FTSE Nordic 30 ETF"}
   ],
   "Bond":[
     {t:"IGOV",n:"iShares International Treasury Bond"},
     {t:"BNDX",n:"Vanguard Total International Bond"}
   ]
+}
 };
 
-// Init dropdowns
 function initDropdowns(){
   var sel=document.getElementById('selRegion');
   Object.keys(FUNDS).forEach(function(region){
@@ -332,6 +326,16 @@ function setTime(r,btn){
   if(Object.keys(chartData).length>0){renderChart();renderReturnsTable();}
 }
 
+function getStartDate(){
+  var d=new Date();
+  if(timeRange==='6M')d.setMonth(d.getMonth()-6);
+  else if(timeRange==='1Y')d.setFullYear(d.getFullYear()-1);
+  else if(timeRange==='3Y')d.setFullYear(d.getFullYear()-3);
+  else if(timeRange==='5Y')d.setFullYear(d.getFullYear()-5);
+  else if(timeRange==='10Y')d.setFullYear(d.getFullYear()-10);
+  return d.toISOString().split('T')[0];
+}
+
 function fetchChart(){
   if(!tickers.length){document.getElementById('chartMsg').textContent='Add funds first';return}
   document.getElementById('chartMsg').textContent='Loading '+tickers.length+' funds...';
@@ -359,8 +363,12 @@ function fetchChart(){
             chartData[ticker].push({date:new Date(timestamps[i]*1000).toISOString().split('T')[0],close:closes[i]});
           }
         }
+        if(chartData[ticker].length===0){
+          document.getElementById('chartMsg').textContent+='\n'+ticker+': No price data';
+          delete chartData[ticker];
+        }
       }else{
-        document.getElementById('chartMsg').textContent+='\n'+ticker+': No data found';
+        document.getElementById('chartMsg').textContent+='\n'+ticker+': Not found';
       }
       loaded++;
       if(loaded===tickers.length){
@@ -369,6 +377,8 @@ function fetchChart(){
           document.getElementById('chartMsg').textContent='';
           renderChart();
           renderReturnsTable();
+        }else{
+          document.getElementById('chartMsg').textContent+='\nNo data to display.';
         }
       }
     }).catch(function(e){
@@ -403,7 +413,10 @@ function renderChart(){
     idx++;
   });
 
-  if(!labels||!datasets.length)return;
+  if(!labels||!datasets.length){
+    if(chart){chart.destroy();chart=null;}
+    return;
+  }
   if(chart)chart.destroy();
 
   chart=new Chart(document.getElementById('fundChart'),{
@@ -422,16 +435,6 @@ function renderChart(){
       }
     }
   });
-}
-
-function getStartDate(){
-  var d=new Date();
-  if(timeRange==='6M')d.setMonth(d.getMonth()-6);
-  else if(timeRange==='1Y')d.setFullYear(d.getFullYear()-1);
-  else if(timeRange==='3Y')d.setFullYear(d.getFullYear()-3);
-  else if(timeRange==='5Y')d.setFullYear(d.getFullYear()-5);
-  else if(timeRange==='10Y')d.setFullYear(d.getFullYear()-10);
-  return d.toISOString().split('T')[0];
 }
 
 function renderReturnsTable(){
@@ -464,7 +467,6 @@ function renderReturnsTable(){
   document.getElementById('returnsTable').innerHTML=html;
 }
 
-// Saved Views
 function saveView(){
   var name=document.getElementById('viewName').value.trim();
   if(!name){alert('Enter a view name');return}
