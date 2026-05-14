@@ -1,0 +1,515 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Fund Comparison</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#1a1a2e;color:#e0e0e0;min-height:100vh;padding:20px}
+.container{max-width:1400px;margin:0 auto}
+h1{text-align:center;margin-bottom:20px;color:#fff}
+.section{background:#2a2a4a;padding:15px;border-radius:8px;margin-bottom:20px}
+.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:10px}
+select{padding:8px 12px;border-radius:4px;border:1px solid #444;background:#1a1a2e;color:#fff;min-width:180px;font-size:13px}
+input[type=text]{padding:8px 12px;border-radius:4px;border:1px solid #444;background:#1a1a2e;color:#fff;width:250px}
+.btn{padding:8px 16px;border-radius:4px;border:none;cursor:pointer;font-size:13px}
+.btn-primary{background:#4fc3f7;color:#000}
+.btn-primary:hover{background:#81d4fa}
+.btn-secondary{background:#444;color:#fff}
+.btn-secondary:hover{background:#555}
+.btn-small{padding:4px 10px;font-size:12px}
+.time-buttons{display:flex;gap:6px}
+.time-btn{padding:6px 14px;border-radius:4px;border:1px solid #444;background:#1a1a2e;color:#aaa;cursor:pointer;font-size:13px}
+.time-btn.active{background:#4fc3f7;color:#000;border-color:#4fc3f7}
+.chart-box{background:#2a2a4a;border-radius:8px;padding:20px;height:500px}
+.tags{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.tag{display:flex;align-items:center;gap:4px;background:#3a3a5a;border:1px solid #555;border-radius:16px;padding:4px 10px;font-size:12px;color:#e0e0e0}
+.tag .x{cursor:pointer;color:#ff6b6b;font-weight:bold;margin-left:4px;font-size:14px}
+.tag .x:hover{color:#ff0000}
+.msg{padding:10px;font-size:13px;white-space:pre-wrap}
+.msg-error{color:#ff6b6b}
+.msg-info{color:#888}
+.nav{display:flex;gap:15px;margin-bottom:10px}
+.nav a{color:#4fc3f7;text-decoration:none;font-size:13px}
+.fund-list{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+.fund-btn{padding:4px 10px;border-radius:4px;border:1px solid #555;background:#2a2a4a;color:#e0e0e0;cursor:pointer;font-size:11px}
+.fund-btn:hover{background:#4fc3f7;color:#000;border-color:#4fc3f7}
+.fund-btn.selected{background:#4fc3f7;color:#000;border-color:#4fc3f7}
+label{font-size:12px;color:#aaa;margin-right:4px}
+table{width:100%;border-collapse:collapse;background:#2a2a4a;border-radius:8px;overflow:hidden;margin-top:15px}
+th,td{padding:8px 12px;text-align:center;border-bottom:1px solid #333;font-size:12px}
+th{background:#333;color:#aaa;font-weight:500}
+td{color:#e0e0e0}
+.positive{color:#69f0ae}
+.negative{color:#ff6b6b}
+</style>
+</head>
+<body>
+<div class="container">
+<div class="nav">
+  <a href="stocks.html">📈 Stocks</a>
+  <a href="browse.html">🔍 Browse</a>
+  <a href="sectors.html">🏭 Sectors</a>
+  <a href="countries.html">🌍 Countries</a>
+  <a href="index.html">🏦 Bonds Calc</a>
+</div>
+<h1>📊 Fund Comparison</h1>
+
+<div class="section">
+  <div class="row">
+    <label>Region:</label>
+    <select id="selRegion" onchange="updateTypes()">
+      <option value="">— Select Region —</option>
+    </select>
+    <label>Type:</label>
+    <select id="selType" onchange="updateFunds()">
+      <option value="">— Select Type —</option>
+    </select>
+  </div>
+  <div class="fund-list" id="fundList"></div>
+  <div class="row" style="margin-top:12px;border-top:1px solid #333;padding-top:12px">
+    <label>Or add manually:</label>
+    <input type="text" id="manualTicker" placeholder="Fund ticker (e.g. VOO, ILF)" onkeydown="if(event.key==='Enter')addManual()">
+    <button class="btn btn-small btn-primary" onclick="addManual()">Add</button>
+  </div>
+  <div class="row">
+    <button class="btn btn-primary" onclick="fetchChart()">Load Chart</button>
+    <button class="btn btn-secondary" onclick="clearAll()">Clear All</button>
+  </div>
+  <div class="row">
+    <input type="text" id="viewName" placeholder="View name" style="width:150px">
+    <button class="btn btn-small btn-secondary" onclick="saveView()">💾 Save</button>
+    <select id="savedViews" onchange="loadView()">
+      <option value="">— Saved Views —</option>
+    </select>
+    <button class="btn btn-small btn-secondary" onclick="deleteView()">🗑️</button>
+  </div>
+  <div class="tags" id="chartTags"></div>
+  <div class="time-buttons" style="margin-top:10px">
+    <button class="time-btn" onclick="setTime('6M',this)">6M</button>
+    <button class="time-btn" onclick="setTime('1Y',this)">1Y</button>
+    <button class="time-btn active" onclick="setTime('3Y',this)">3Y</button>
+    <button class="time-btn" onclick="setTime('5Y',this)">5Y</button>
+    <button class="time-btn" onclick="setTime('10Y',this)">10Y</button>
+  </div>
+</div>
+
+<div class="chart-box"><canvas id="fundChart"></canvas></div>
+<div class="msg msg-error" id="chartMsg"></div>
+<div id="returnsTable"></div>
+<div class="msg msg-info" style="margin-top:10px">
+  All funds shown in their trading currency. ETFs from US providers are in USD.
+  Performance is price return only (dividends not included in chart).
+</div>
+</div>
+
+<script>
+var PROXY='https://yahoo.gretegrents.workers.dev/';
+var chart=null,timeRange='3Y',chartData={},chartNames={};
+var tickers=[];
+
+var FUNDS={
+"Latin America":{
+  "Equity":[
+    {t:"ILF",n:"iShares Latin America 40 ETF"},
+    {t:"FLLA",n:"Franklin FTSE Latin America ETF"},
+    {t:"GML",n:"SPDR S&P Emerging Latin America ETF"},
+    {t:"EWZ",n:"iShares MSCI Brazil ETF"},
+    {t:"EWW",n:"iShares MSCI Mexico ETF"},
+    {t:"ECH",n:"iShares MSCI Chile ETF"},
+    {t:"ARGT",n:"Global X MSCI Argentina ETF"},
+    {t:"GXG",n:"Global X MSCI Colombia ETF"},
+    {t:"EPU",n:"iShares MSCI Peru ETF"}
+  ],
+  "Bond":[
+    {t:"LEMB",n:"iShares J.P. Morgan EM Local Currency Bond"},
+    {t:"EMB",n:"iShares J.P. Morgan USD EM Bond ETF"},
+    {t:"EMLC",n:"VanEck J.P. Morgan EM Local Currency Bond"}
+  ]
+},
+"Asia-Pacific":{
+  "Equity":[
+    {t:"VPL",n:"Vanguard FTSE Pacific ETF"},
+    {t:"AAXJ",n:"iShares MSCI All Country Asia ex Japan"},
+    {t:"EWT",n:"iShares MSCI Taiwan ETF"},
+    {t:"EWY",n:"iShares MSCI South Korea ETF"},
+    {t:"EWJ",n:"iShares MSCI Japan ETF"},
+    {t:"EWA",n:"iShares MSCI Australia ETF"},
+    {t:"EWS",n:"iShares MSCI Singapore ETF"},
+    {t:"INDA",n:"iShares MSCI India ETF"},
+    {t:"MCHI",n:"iShares MSCI China ETF"},
+    {t:"EWH",n:"iShares MSCI Hong Kong ETF"},
+    {t:"EIDO",n:"iShares MSCI Indonesia ETF"},
+    {t:"THD",n:"iShares MSCI Thailand ETF"},
+    {t:"VNM",n:"VanEck Vietnam ETF"}
+  ],
+  "Bond":[
+    {t:"IAGG",n:"iShares International Aggregate Bond"},
+    {t:"BNDX",n:"Vanguard Total International Bond ETF"},
+    {t:"EMLC",n:"VanEck EM Local Currency Bond"}
+  ]
+},
+"Europe":{
+  "Equity":[
+    {t:"VGK",n:"Vanguard FTSE Europe ETF"},
+    {t:"IEV",n:"iShares Europe ETF"},
+    {t:"EZU",n:"iShares MSCI Eurozone ETF"},
+    {t:"EWG",n:"iShares MSCI Germany ETF"},
+    {t:"EWU",n:"iShares MSCI United Kingdom ETF"},
+    {t:"EWQ",n:"iShares MSCI France ETF"},
+    {t:"EWI",n:"iShares MSCI Italy ETF"},
+    {t:"EWP",n:"iShares MSCI Spain ETF"},
+    {t:"EWL",n:"iShares MSCI Switzerland ETF"},
+    {t:"EWN",n:"iShares MSCI Netherlands ETF"},
+    {t:"NORW",n:"Global X MSCI Norway ETF"},
+    {t:"EWD",n:"iShares MSCI Sweden ETF"},
+    {t:"EDEN",n:"iShares MSCI Denmark ETF"},
+    {t:"EFNL",n:"iShares MSCI Finland ETF"},
+    {t:"EPOL",n:"iShares MSCI Poland ETF"}
+  ],
+  "Bond":[
+    {t:"IGOV",n:"iShares International Treasury Bond"},
+    {t:"BWX",n:"SPDR Bloomberg International Treasury Bond"},
+    {t:"IBND",n:"SPDR Bloomberg International Corporate Bond"}
+  ]
+},
+"USA":{
+  "Equity - Broad":[
+    {t:"VOO",n:"Vanguard S&P 500 ETF"},
+    {t:"SPY",n:"SPDR S&P 500 ETF"},
+    {t:"VTI",n:"Vanguard Total Stock Market ETF"},
+    {t:"QQQ",n:"Invesco Nasdaq 100 ETF"},
+    {t:"IWM",n:"iShares Russell 2000 (Small Cap)"},
+    {t:"DIA",n:"SPDR Dow Jones Industrial Average"}
+  ],
+  "Equity - Sector":[
+    {t:"XLK",n:"Technology Select Sector SPDR"},
+    {t:"XLF",n:"Financial Select Sector SPDR"},
+    {t:"XLE",n:"Energy Select Sector SPDR"},
+    {t:"XLV",n:"Health Care Select Sector SPDR"},
+    {t:"XLI",n:"Industrial Select Sector SPDR"},
+    {t:"XLRE",n:"Real Estate Select Sector SPDR"},
+    {t:"XLU",n:"Utilities Select Sector SPDR"}
+  ],
+  "Bond":[
+    {t:"AGG",n:"iShares Core US Aggregate Bond"},
+    {t:"BND",n:"Vanguard Total Bond Market ETF"},
+    {t:"TLT",n:"iShares 20+ Year Treasury Bond"},
+    {t:"SHY",n:"iShares 1-3 Year Treasury Bond"},
+    {t:"IEF",n:"iShares 7-10 Year Treasury Bond"},
+    {t:"LQD",n:"iShares Investment Grade Corporate Bond"},
+    {t:"HYG",n:"iShares High Yield Corporate Bond"},
+    {t:"TIP",n:"iShares TIPS Bond ETF"}
+  ]
+},
+"Global":{
+  "Equity":[
+    {t:"VT",n:"Vanguard Total World Stock ETF"},
+    {t:"ACWI",n:"iShares MSCI ACWI ETF"},
+    {t:"VEU",n:"Vanguard FTSE All-World ex-US ETF"},
+    {t:"EFA",n:"iShares MSCI EAFE ETF"},
+    {t:"VWO",n:"Vanguard FTSE Emerging Markets ETF"},
+    {t:"EEM",n:"iShares MSCI Emerging Markets ETF"},
+    {t:"IEMG",n:"iShares Core MSCI Emerging Markets"}
+  ],
+  "Bond":[
+    {t:"BNDW",n:"Vanguard Total World Bond ETF"},
+    {t:"IAGG",n:"iShares International Aggregate Bond"},
+    {t:"EMB",n:"iShares J.P. Morgan USD EM Bond"},
+    {t:"EMLC",n:"VanEck EM Local Currency Bond"}
+  ]
+},
+"Middle East & Africa":{
+  "Equity":[
+    {t:"TUR",n:"iShares MSCI Turkey ETF"},
+    {t:"EZA",n:"iShares MSCI South Africa ETF"},
+    {t:"KSA",n:"iShares MSCI Saudi Arabia ETF"},
+    {t:"UAE",n:"iShares MSCI UAE ETF"},
+    {t:"QAT",n:"iShares MSCI Qatar ETF"},
+    {t:"AFK",n:"VanEck Africa Index ETF"},
+    {t:"FM",n:"iShares MSCI Frontier & Select EM ETF"}
+  ],
+  "Bond":[
+    {t:"EMB",n:"iShares J.P. Morgan USD EM Bond"},
+    {t:"EMHY",n:"iShares J.P. Morgan EM High Yield Bond"}
+  ]
+},
+"Nordics":{
+  "Equity":[
+    {t:"NORW",n:"Global X MSCI Norway ETF"},
+    {t:"EWD",n:"iShares MSCI Sweden ETF"},
+    {t:"EDEN",n:"iShares MSCI Denmark ETF"},
+    {t:"EFNL",n:"iShares MSCI Finland ETF"},
+    {t:"ENOR.OL",n:"DNB Norge Indeks (NOK)"},
+    {t:"XACT NORDEN.ST",n:"Xact Norden (SEK)"}
+  ],
+  "Bond":[
+    {t:"IGOV",n:"iShares International Treasury Bond"},
+    {t:"BNDX",n:"Vanguard Total International Bond"}
+  ]
+}
+};
+
+// Init dropdowns
+function initDropdowns(){
+  var sel=document.getElementById('selRegion');
+  Object.keys(FUNDS).forEach(function(region){
+    sel.innerHTML+='<option value="'+region+'">'+region+'</option>';
+  });
+}
+
+function updateTypes(){
+  var region=document.getElementById('selRegion').value;
+  var sel=document.getElementById('selType');
+  sel.innerHTML='<option value="">— Select Type —</option>';
+  document.getElementById('fundList').innerHTML='';
+  if(!region||!FUNDS[region])return;
+  Object.keys(FUNDS[region]).forEach(function(type){
+    sel.innerHTML+='<option value="'+type+'">'+type+'</option>';
+  });
+}
+
+function updateFunds(){
+  var region=document.getElementById('selRegion').value;
+  var type=document.getElementById('selType').value;
+  var list=document.getElementById('fundList');
+  list.innerHTML='';
+  if(!region||!type||!FUNDS[region]||!FUNDS[region][type])return;
+  FUNDS[region][type].forEach(function(f){
+    var selected=tickers.indexOf(f.t)!==-1;
+    list.innerHTML+='<button class="fund-btn'+(selected?' selected':'')+'" onclick="toggleFund(\''+f.t+'\',\''+f.n.replace(/'/g,"\\'")+'\')" title="'+f.n+'">'+f.t+' — '+f.n+'</button>';
+  });
+}
+
+function toggleFund(ticker,name){
+  var idx=tickers.indexOf(ticker);
+  if(idx===-1){tickers.push(ticker);chartNames[ticker]=name;}
+  else{tickers.splice(idx,1);delete chartNames[ticker];delete chartData[ticker];}
+  renderTags();updateFunds();
+}
+
+function addManual(){
+  var input=document.getElementById('manualTicker');
+  var val=input.value.trim().toUpperCase();
+  if(val&&tickers.indexOf(val)===-1){
+    tickers.push(val);
+    chartNames[val]=val;
+  }
+  input.value='';input.focus();
+  renderTags();updateFunds();
+}
+
+function clearAll(){
+  tickers=[];chartData={};chartNames={};
+  renderTags();updateFunds();
+  if(chart){chart.destroy();chart=null;}
+  document.getElementById('returnsTable').innerHTML='';
+  document.getElementById('chartMsg').textContent='';
+}
+
+function removeTag(ticker){
+  tickers=tickers.filter(function(t){return t!==ticker});
+  delete chartData[ticker];delete chartNames[ticker];
+  renderTags();updateFunds();
+  if(Object.keys(chartData).length>0){renderChart();renderReturnsTable();}
+  else if(chart){chart.destroy();chart=null;document.getElementById('returnsTable').innerHTML='';}
+}
+
+function renderTags(){
+  var html='';
+  tickers.forEach(function(t){
+    var name=chartNames[t]&&chartNames[t]!==t?' — '+chartNames[t]:'';
+    html+='<div class="tag">'+t+name+'<span class="x" onclick="removeTag(\''+t+'\')">×</span></div>';
+  });
+  document.getElementById('chartTags').innerHTML=html;
+}
+
+function setTime(r,btn){
+  timeRange=r;
+  document.querySelectorAll('.time-btn').forEach(function(b){b.classList.remove('active')});
+  btn.classList.add('active');
+  if(Object.keys(chartData).length>0){renderChart();renderReturnsTable();}
+}
+
+function fetchChart(){
+  if(!tickers.length){document.getElementById('chartMsg').textContent='Add funds first';return}
+  document.getElementById('chartMsg').textContent='Loading '+tickers.length+' funds...';
+  chartData={};
+  var loaded=0;
+
+  var now=Math.floor(Date.now()/1000);
+  var start=new Date();
+  start.setFullYear(start.getFullYear()-10);
+  var period1=Math.floor(start.getTime()/1000);
+
+  tickers.forEach(function(ticker){
+    var url=PROXY+'?symbol='+encodeURIComponent(ticker)+'&period1='+period1+'&period2='+now+'&interval=1wk';
+    fetch(url).then(function(r){return r.json()}).then(function(data){
+      if(data.chart&&data.chart.result&&data.chart.result[0]){
+        var result=data.chart.result[0];
+        var timestamps=result.timestamp||[];
+        var closes=result.indicators.quote[0].close||[];
+        if(!chartNames[ticker]||chartNames[ticker]===ticker){
+          chartNames[ticker]=result.meta.shortName||result.meta.symbol||ticker;
+        }
+        chartData[ticker]=[];
+        for(var i=0;i<timestamps.length;i++){
+          if(closes[i]!==null){
+            chartData[ticker].push({date:new Date(timestamps[i]*1000).toISOString().split('T')[0],close:closes[i]});
+          }
+        }
+      }else{
+        document.getElementById('chartMsg').textContent+='\n'+ticker+': No data found';
+      }
+      loaded++;
+      if(loaded===tickers.length){
+        renderTags();
+        if(Object.keys(chartData).length>0){
+          document.getElementById('chartMsg').textContent='';
+          renderChart();
+          renderReturnsTable();
+        }
+      }
+    }).catch(function(e){
+      document.getElementById('chartMsg').textContent+='\n'+ticker+': '+e.message;
+      loaded++;
+    });
+  });
+}
+
+function renderChart(){
+  var startDate=getStartDate();
+  var colors=['#4fc3f7','#ff6b6b','#69f0ae','#ffd54f','#ce93d8','#ff8a65','#80cbc4','#f48fb1','#aed581','#90a4ae',
+    '#fff176','#a1887f','#b39ddb','#ef9a9a','#80deea','#ffcc80','#c5e1a5','#f8bbd0','#b0bec5','#dce775'];
+  var datasets=[],labels=null;
+  var idx=0;
+
+  tickers.forEach(function(ticker){
+    if(!chartData[ticker]||!chartData[ticker].length)return;
+    var filtered=chartData[ticker].filter(function(d){return d.date>=startDate});
+    if(filtered.length<2)return;
+    var base=filtered[0].close;
+    if(!labels)labels=filtered.map(function(d){return d.date});
+    datasets.push({
+      label:(chartNames[ticker]||ticker),
+      data:filtered.map(function(d){return d.close/base}),
+      borderColor:colors[idx%colors.length],
+      backgroundColor:'transparent',
+      borderWidth:2,
+      pointRadius:0,
+      tension:0.2
+    });
+    idx++;
+  });
+
+  if(!labels||!datasets.length)return;
+  if(chart)chart.destroy();
+
+  chart=new Chart(document.getElementById('fundChart'),{
+    type:'line',
+    data:{labels:labels,datasets:datasets},
+    options:{
+      responsive:true,maintainAspectRatio:false,
+      interaction:{mode:'index',intersect:false},
+      plugins:{
+        legend:{position:'right',labels:{color:'#e0e0e0',usePointStyle:true,font:{size:11}}},
+        tooltip:{callbacks:{label:function(ctx){return ctx.dataset.label+': '+(ctx.parsed.y*100).toFixed(1)+'%'}}}
+      },
+      scales:{
+        x:{ticks:{color:'#888',maxTicksLimit:12},grid:{color:'#333'}},
+        y:{ticks:{color:'#888',callback:function(v){return(v*100).toFixed(0)+'%'}},grid:{color:'#333'}}
+      }
+    }
+  });
+}
+
+function getStartDate(){
+  var d=new Date();
+  if(timeRange==='6M')d.setMonth(d.getMonth()-6);
+  else if(timeRange==='1Y')d.setFullYear(d.getFullYear()-1);
+  else if(timeRange==='3Y')d.setFullYear(d.getFullYear()-3);
+  else if(timeRange==='5Y')d.setFullYear(d.getFullYear()-5);
+  else if(timeRange==='10Y')d.setFullYear(d.getFullYear()-10);
+  return d.toISOString().split('T')[0];
+}
+
+function renderReturnsTable(){
+  var startDate=getStartDate();
+  var rows=[];
+
+  tickers.forEach(function(ticker){
+    if(!chartData[ticker]||!chartData[ticker].length)return;
+    var filtered=chartData[ticker].filter(function(d){return d.date>=startDate});
+    if(filtered.length<2)return;
+    var startPrice=filtered[0].close;
+    var endPrice=filtered[filtered.length-1].close;
+    var totalReturn=((endPrice/startPrice)-1)*100;
+    var years=timeRange==='6M'?0.5:parseFloat(timeRange.replace('Y',''));
+    var annualized=(Math.pow(endPrice/startPrice,1/years)-1)*100;
+    rows.push({ticker:ticker,name:chartNames[ticker]||ticker,totalReturn:totalReturn,annualized:annualized});
+  });
+
+  rows.sort(function(a,b){return b.totalReturn-a.totalReturn});
+
+  var html='<table><tr><th>#</th><th style="text-align:left">Fund</th><th>Total Return</th><th>Annualized</th></tr>';
+  rows.forEach(function(r,i){
+    var trCls=r.totalReturn>=0?'positive':'negative';
+    var anCls=r.annualized>=0?'positive':'negative';
+    html+='<tr><td>'+(i+1)+'</td><td style="text-align:left">'+r.ticker+' — '+r.name+'</td>';
+    html+='<td class="'+trCls+'">'+r.totalReturn.toFixed(1)+'%</td>';
+    html+='<td class="'+anCls+'">'+r.annualized.toFixed(1)+'%</td></tr>';
+  });
+  html+='</table>';
+  document.getElementById('returnsTable').innerHTML=html;
+}
+
+// Saved Views
+function saveView(){
+  var name=document.getElementById('viewName').value.trim();
+  if(!name){alert('Enter a view name');return}
+  if(!tickers.length){alert('Add funds first');return}
+  var views=JSON.parse(localStorage.getItem('fundViews')||'{}');
+  views[name]={tickers:tickers.slice(),names:Object.assign({},chartNames)};
+  localStorage.setItem('fundViews',JSON.stringify(views));
+  document.getElementById('viewName').value='';
+  loadViewList();
+}
+
+function loadView(){
+  var sel=document.getElementById('savedViews');
+  var name=sel.value;
+  if(!name)return;
+  var views=JSON.parse(localStorage.getItem('fundViews')||'{}');
+  if(views[name]){
+    tickers=views[name].tickers.slice();
+    chartNames=Object.assign({},views[name].names||{});
+    renderTags();updateFunds();fetchChart();
+  }
+}
+
+function deleteView(){
+  var sel=document.getElementById('savedViews');
+  var name=sel.value;
+  if(!name){alert('Select a view to delete');return}
+  var views=JSON.parse(localStorage.getItem('fundViews')||'{}');
+  delete views[name];
+  localStorage.setItem('fundViews',JSON.stringify(views));
+  loadViewList();
+}
+
+function loadViewList(){
+  var views=JSON.parse(localStorage.getItem('fundViews')||'{}');
+  var sel=document.getElementById('savedViews');
+  sel.innerHTML='<option value="">— Saved Views —</option>';
+  Object.keys(views).forEach(function(name){
+    sel.innerHTML+='<option value="'+name+'">'+name+' ('+views[name].tickers.length+')</option>';
+  });
+}
+
+initDropdowns();
+loadViewList();
+</script>
+</body>
+</html>
