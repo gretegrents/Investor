@@ -109,7 +109,7 @@ var MARKETS={
     "\u{1F1E8}\u{1F1ED} Switzerland":{ticker:"^SSMI"},
     "\u{1F1EA}\u{1F1F8} Spain":{ticker:"^IBEX"},
     "\u{1F1EE}\u{1F1F9} Italy":{ticker:"FTSEMIB.MI"},
-    "\u{1F1F5}\u{1F1F1} Poland":{ticker:"^WIG20"}
+    "\u{1F1F5}\u{1F1F1} Poland":{ticker:"WIG20.WA"}
   },
   "Americas":{
     "\u{1F1FA}\u{1F1F8} USA (S&P500)":{ticker:"^GSPC"},
@@ -129,14 +129,13 @@ var MARKETS={
     "\u{1F1E6}\u{1F1FA} Australia":{ticker:"^AXJO"},
     "\u{1F1F8}\u{1F1EC} Singapore":{ticker:"^STI"},
     "\u{1F1EE}\u{1F1E9} Indonesia":{ticker:"^JKSE"},
-    "\u{1F1F9}\u{1F1ED} Thailand":{ticker:"^SET.BK"},
-    "\u{1F1FB}\u{1F1F3} Vietnam":{ticker:"^VNINDEX"}
+    "\u{1F1F9}\u{1F1ED} Thailand":{ticker:"^SET.BK"}
   },
   "Middle East & Africa":{
     "\u{1F1F9}\u{1F1F7} Turkey":{ticker:"^XU100"},
     "\u{1F1FF}\u{1F1E6} South Africa":{ticker:"^J203.JO"},
     "\u{1F1F8}\u{1F1E6} Saudi Arabia":{ticker:"^TASI.SR"},
-    "\u{1F1E6}\u{1F1EA} UAE":{ticker:"^ADI"}
+    "\u{1F1E6}\u{1F1EA} UAE":{ticker:"^DFMGI"}
   }
 };
 
@@ -255,10 +254,18 @@ function toggleCountry(country){
   if(Object.keys(allData).length>0){renderChart();renderReturnsTable();}
 }
 
-function showAll(){hiddenCountries={};renderFilterTags();if(Object.keys(allData).length>0){renderChart();renderReturnsTable();}}
+function showAll(){
+  hiddenCountries={};
+  renderFilterTags();
+  if(Object.keys(allData).length>0){renderChart();renderReturnsTable();}
+}
+
 function hideAll(){
   getAllCountries().forEach(function(c){hiddenCountries[c.name]=true});
-  renderFilterTags();if(Object.keys(allData).length>0){renderChart();renderReturnsTable();}
+  renderFilterTags();
+  if(chart){chart.destroy();chart=null;}
+  document.getElementById('chartMsg').textContent='All countries hidden. Click tags to show.';
+  document.getElementById('returnsTable').innerHTML='';
 }
 
 function renderChart(){
@@ -328,7 +335,8 @@ function renderChart(){
   }
 
   if(!labels||!datasets.length){
-    document.getElementById('chartMsg').textContent='No data to display. Load markets first.';
+    if(chart){chart.destroy();chart=null;}
+    document.getElementById('chartMsg').textContent='No data to display.';
     return;
   }
   document.getElementById('chartMsg').textContent='';
