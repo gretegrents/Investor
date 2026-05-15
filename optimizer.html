@@ -44,7 +44,7 @@ td{color:#e0e0e0}
 .result-card h4{color:#4fc3f7;margin-bottom:8px;font-size:13px}
 .weight-bar{display:flex;align-items:center;gap:8px;margin:4px 0}
 .weight-bar-fill{height:16px;border-radius:3px;min-width:2px}
-.weight-bar-label{font-size:11px;color:#aaa;min-width:60px}
+.weight-bar-label{font-size:11px;color:#aaa;min-width:120px}
 .weight-bar-value{font-size:11px;color:#fff;min-width:40px}
 .progress{background:#333;border-radius:4px;height:20px;margin-top:10px;overflow:hidden;display:none}
 .progress-bar{background:#4fc3f7;height:100%;transition:width 0.3s;display:flex;align-items:center;justify-content:center;font-size:11px;color:#000}
@@ -127,6 +127,7 @@ var tickers=[];
 var priceData={};
 var allPortfolios=[];
 var validTickersGlobal=[];
+var tickerNames={};
 var sampleStep=1;
 
 function addTicker(){
@@ -156,9 +157,14 @@ function clearAll(){
 function renderTags(){
   var html='';
   tickers.forEach(function(t){
-    html+='<div class="tag">'+t+'<span class="x" onclick="removeTicker(\''+t+'\')">×</span></div>';
+    var name=tickerNames[t]?' — '+tickerNames[t]:'';
+    html+='<div class="tag">'+t+name+'<span class="x" onclick="removeTicker(\''+t+'\')">×</span></div>';
   });
   document.getElementById('tickerTags').innerHTML=html;
+}
+
+function getLabel(ticker){
+  return tickerNames[ticker]?ticker+' — '+tickerNames[ticker]:ticker;
 }
 
 async function runOptimizer(){
@@ -178,6 +184,7 @@ async function runOptimizer(){
   document.getElementById('selectedPortfolio').innerHTML='';
 
   priceData={};
+  tickerNames={};
   var now=Math.floor(Date.now()/1000);
   var start=new Date();
   start.setFullYear(start.getFullYear()-years);
@@ -199,13 +206,17 @@ async function runOptimizer(){
         for(var j=0;j<timestamps.length;j++){
           if(closes[j]!==null)prices.push(closes[j]);
         }
-        if(prices.length>10)priceData[ticker]=prices;
-        else failed.push(ticker);
+        if(prices.length>10){
+          priceData[ticker]=prices;
+          tickerNames[ticker]=result.meta.shortName||result.meta.longName||ticker;
+        }else{failed.push(ticker);}
       }else{failed.push(ticker);}
     }catch(e){failed.push(ticker);}
     loaded++;
     document.getElementById('progressBar').style.width=Math.round(loaded/tickers.length*30)+'%';
   }
+
+  renderTags();
 
   if(failed.length>0){
     document.getElementById('chartMsg').textContent='Failed to load: '+failed.join(', ');
@@ -318,15 +329,12 @@ function plotFrontier(portfolios,maxSharpe,minVol,validTickers,meanReturns,covMa
   sampleStep=Math.max(1,Math.floor(portfolios.length/3000));
   var scatterData=[];
   for(var i=0;i<portfolios.length;i+=sampleStep){
-    var p=portfolios[i];
-    scatterData.push({x:p.vol*100,y:p.ret*100});
+    scatterData.push({x:portfolios[i].vol*100,y:portfolios[i].ret*100});
   }
 
   var assetPoints=[];
   for(var i=0;i<validTickers.length;i++){
-    var vol=Math.sqrt(covMatrix[i][i])*100;
-    var ret=meanReturns[validTickers[i]]*100;
-    assetPoints.push({x:vol,y:ret});
+    assetPoints.push({x:Math.sqrt(covMatrix[i][i])*100,y:meanReturns[validTickers[i]]*100});
   }
 
   chart=new Chart(document.getElementById('frontierChart'),{
@@ -376,34 +384,24 @@ function plotFrontier(portfolios,maxSharpe,minVol,validTickers,meanReturns,covMa
           callbacks:{
             label:function(ctx){
               if(ctx.datasetIndex===3){
-                return validTickersGlobal[ctx.dataIndex]+': Return '+ctx.parsed.y.toFixed(1)+'%, Risk '+ctx.parsed.x.toFixed(1)+'%';
+                return getLabel(validTickersGlobal[ctx.dataIndex])+': Return '+ctx.parsed.y.toFixed(1)+'%, Risk '+ctx.parsed.x.toFixed(1)+'%';
               }
-              return 'Return: '+ctx.parsed.y.toFixed(1)+'%, Risk: '+ctx.parsed.x.toFixed(1)+'%';
+              return 'Return: '+ctx.parsed.y.toFixed(1)+'%, Risk: '+ctx.parsed.x.toFixed(1)+'% (click for details)';
             }
           }
         }
       },
       scales:{
-        x:{
-          title:{display:true,text:'Annual Volatility (Risk) %',color:'#aaa'},
-          ticks:{color:'#888'},
-          grid:{color:'#333'}
-        },
-        y:{
-          title:{display:true,text:'Annual Expected Return %',color:'#aaa'},
-          ticks:{color:'#888'},
-          grid:{color:'#333'}
-        }
+        x:{title:{display:true,text:'Annual Volatility (Risk) %',color:'#aaa'},ticks:{color:'#888'},grid:{color:'#333'}},
+        y:{title:{display:true,text:'Annual Expected Return %',color:'#aaa'},ticks:{color:'#888'},grid:{color:'#333'}}
       }
     }
   });
 
-  // Click handler for dots
   document.getElementById('frontierChart').onclick=function(evt){
     var points=chart.getElementsAtEventForMode(evt,'nearest',{intersect:true},true);
     if(points.length>0&&points[0].datasetIndex===0){
-      var pointIdx=points[0].index;
-      var portfolioIdx=pointIdx*sampleStep;
+      var portfolioIdx=points[0].index*sampleStep;
       if(portfolioIdx<allPortfolios.length){
         showSelectedPortfolio(allPortfolios[portfolioIdx]);
       }
@@ -428,7 +426,7 @@ function showSelectedPortfolio(p){
     var w=s.weight*100;
     if(w<0.5)return;
     html+='<div class="weight-bar">';
-    html+='<span class="weight-bar-label">'+s.ticker+'</span>';
+    html+='<span class="weight-bar-label" title="'+getLabel(s.ticker)+'">'+getLabel(s.ticker)+'</span>';
     html+='<div class="weight-bar-fill" style="width:'+Math.min(w,100)*2+'px;background:'+s.color+'"></div>';
     html+='<span class="weight-bar-value">'+w.toFixed(1)+'%</span>';
     html+='</div>';
@@ -449,7 +447,7 @@ function showResults(validTickers,meanReturns,covMatrix,maxSharpe,minVol,riskFre
   for(var i=0;i<validTickers.length;i++){
     var w=maxSharpe.weights[i]*100;
     if(w<0.5)continue;
-    html+='<div class="weight-bar"><span class="weight-bar-label">'+validTickers[i]+'</span>';
+    html+='<div class="weight-bar"><span class="weight-bar-label">'+getLabel(validTickers[i])+'</span>';
     html+='<div class="weight-bar-fill" style="width:'+Math.min(w,100)*2+'px;background:'+colors[i%colors.length]+'"></div>';
     html+='<span class="weight-bar-value">'+w.toFixed(1)+'%</span></div>';
   }
@@ -463,19 +461,19 @@ function showResults(validTickers,meanReturns,covMatrix,maxSharpe,minVol,riskFre
   for(var i=0;i<validTickers.length;i++){
     var w=minVol.weights[i]*100;
     if(w<0.5)continue;
-    html+='<div class="weight-bar"><span class="weight-bar-label">'+validTickers[i]+'</span>';
+    html+='<div class="weight-bar"><span class="weight-bar-label">'+getLabel(validTickers[i])+'</span>';
     html+='<div class="weight-bar-fill" style="width:'+Math.min(w,100)*2+'px;background:'+colors[i%colors.length]+'"></div>';
     html+='<span class="weight-bar-value">'+w.toFixed(1)+'%</span></div>';
   }
   html+='</div></div>';
 
   html+='<div class="section" style="margin-top:15px"><h3>Individual Asset Statistics</h3>';
-  html+='<table><tr><th>Asset</th><th>Annual Return</th><th>Annual Volatility</th><th>Sharpe Ratio</th></tr>';
+  html+='<table><tr><th style="text-align:left">Asset</th><th>Annual Return</th><th>Annual Volatility</th><th>Sharpe Ratio</th></tr>';
   for(var i=0;i<validTickers.length;i++){
     var ret=meanReturns[validTickers[i]]*100;
     var vol=Math.sqrt(covMatrix[i][i])*100;
     var sharpe=(meanReturns[validTickers[i]]-riskFreeRate)/Math.sqrt(covMatrix[i][i]);
-    html+='<tr><td>'+validTickers[i]+'</td>';
+    html+='<tr><td style="text-align:left">'+getLabel(validTickers[i])+'</td>';
     html+='<td class="'+(ret>=0?'positive':'negative')+'">'+ret.toFixed(1)+'%</td>';
     html+='<td>'+vol.toFixed(1)+'%</td>';
     html+='<td>'+sharpe.toFixed(2)+'</td></tr>';
@@ -484,10 +482,10 @@ function showResults(validTickers,meanReturns,covMatrix,maxSharpe,minVol,riskFre
 
   html+='<div class="section"><h3>Correlation Matrix</h3>';
   html+='<table><tr><th></th>';
-  validTickers.forEach(function(t){html+='<th>'+t+'</th>'});
+  validTickers.forEach(function(t){html+='<th title="'+getLabel(t)+'">'+t+'</th>'});
   html+='</tr>';
   for(var i=0;i<validTickers.length;i++){
-    html+='<tr><td style="font-weight:bold">'+validTickers[i]+'</td>';
+    html+='<tr><td style="font-weight:bold" title="'+getLabel(validTickers[i])+'">'+validTickers[i]+'</td>';
     for(var j=0;j<validTickers.length;j++){
       var corr=covMatrix[i][j]/(Math.sqrt(covMatrix[i][i])*Math.sqrt(covMatrix[j][j]));
       var color=corr>0.7?'#ff6b6b':corr<0.3?'#69f0ae':'#e0e0e0';
@@ -496,7 +494,7 @@ function showResults(validTickers,meanReturns,covMatrix,maxSharpe,minVol,riskFre
     html+='</tr>';
   }
   html+='</table>';
-  html+='<div style="font-size:11px;color:#888;margin-top:5px">🟢 Low correlation (good diversification) | 🔴 High correlation (similar movement)</div></div>';
+  html+='<div style="font-size:11px;color:#888;margin-top:5px">🟢 Low correlation (good diversification) | 🔴 High correlation (similar movement) | Hover headers for full names</div></div>';
 
   document.getElementById('results').innerHTML=html;
 }
