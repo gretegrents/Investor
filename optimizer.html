@@ -79,6 +79,14 @@ td{color:#e0e0e0}
     <button class="btn btn-small btn-primary" onclick="addTicker()">Add</button>
     <button class="btn btn-secondary" onclick="clearAll()">Clear All</button>
   </div>
+  <div class="row">
+  <input type="text" id="scenarioName" placeholder="Scenario name" style="width:160px">
+  <button class="btn btn-small btn-secondary" onclick="saveScenario()">💾 Save Scenario</button>
+  <select id="savedScenarios" onchange="loadScenario()" style="min-width:180px">
+    <option value="">— Saved Scenarios —</option>
+  </select>
+  <button class="btn btn-small btn-secondary" onclick="deleteScenario()">🗑️</button>
+</div>
   <div id="assetList"></div>
   <div class="row" style="margin-top:12px;border-top:1px solid #333;padding-top:12px">
     <label>Bond Allocation:</label>
@@ -221,6 +229,52 @@ function showResults(validT,meanR,cov,maxS,minV,rf){
   html+='</table><div style="font-size:11px;color:#888;margin-top:5px">🟢 Low corr (diversified) | 🔴 High corr (redundant)</div></div>';
   document.getElementById('results').innerHTML=html;
 }
+function saveScenario(){
+  var name=document.getElementById('scenarioName').value.trim();
+  if(!name){alert('Enter a scenario name');return;}
+  if(!assets.length){alert('Add assets first');return;}
+  var scenarios=JSON.parse(localStorage.getItem('optimizerScenarios')||'{}');
+  scenarios[name]={
+    assets:assets.slice(),
+    bondAlloc:document.getElementById('bondSlider').value,
+    period:document.getElementById('dataPeriod').value,
+    riskFree:document.getElementById('riskFree').value,
+    savedAt:new Date().toLocaleString()
+  };
+  localStorage.setItem('optimizerScenarios',JSON.stringify(scenarios));
+  document.getElementById('scenarioName').value='';
+  loadScenarioList();
+}
+function loadScenario(){
+  var sel=document.getElementById('savedScenarios');
+  var name=sel.value;if(!name)return;
+  var scenarios=JSON.parse(localStorage.getItem('optimizerScenarios')||'{}');
+  if(scenarios[name]){
+    assets=scenarios[name].assets.slice();
+    document.getElementById('bondSlider').value=scenarios[name].bondAlloc||40;
+    document.getElementById('dataPeriod').value=scenarios[name].period||'5';
+    document.getElementById('riskFree').value=scenarios[name].riskFree||'4.0';
+    updateSlider();renderAssetList();
+  }
+}
+function deleteScenario(){
+  var sel=document.getElementById('savedScenarios');
+  var name=sel.value;if(!name){alert('Select a scenario');return;}
+  var scenarios=JSON.parse(localStorage.getItem('optimizerScenarios')||'{}');
+  delete scenarios[name];
+  localStorage.setItem('optimizerScenarios',JSON.stringify(scenarios));
+  loadScenarioList();
+}
+function loadScenarioList(){
+  var scenarios=JSON.parse(localStorage.getItem('optimizerScenarios')||'{}');
+  var sel=document.getElementById('savedScenarios');
+  sel.innerHTML='<option value="">— Saved Scenarios —</option>';
+  Object.keys(scenarios).forEach(function(name){
+    var s=scenarios[name];
+    sel.innerHTML+='<option value="'+name+'">'+name+' ('+s.assets.length+' assets, '+s.savedAt+')</option>';
+  });
+}
+loadScenarioList();
 
 function addNote(){var text=document.getElementById('noteInput').value.trim();if(!text)return;var notes=JSON.parse(localStorage.getItem('optimizerNotes')||'[]');notes.unshift({time:new Date().toLocaleString(),text:text,tickers:assets.map(function(a){return a.ticker})});localStorage.setItem('optimizerNotes',JSON.stringify(notes));document.getElementById('noteInput').value='';renderNotes();}
 function deleteNote(i){var notes=JSON.parse(localStorage.getItem('optimizerNotes')||'[]');notes.splice(i,1);localStorage.setItem('optimizerNotes',JSON.stringify(notes));renderNotes();}
