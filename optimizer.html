@@ -22,6 +22,10 @@ select{padding:8px 12px;border-radius:4px;border:1px solid #444;background:#1a1a
 .btn-secondary{background:#444;color:#fff}
 .btn-secondary:hover{background:#555}
 .btn-small{padding:4px 10px;font-size:12px}
+.tags{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.tag{display:flex;align-items:center;gap:4px;background:#3a3a5a;border:1px solid #555;border-radius:16px;padding:4px 10px;font-size:12px;color:#e0e0e0}
+.tag .x{cursor:pointer;color:#ff6b6b;font-weight:bold;margin-left:4px;font-size:14px}
+.tag .x:hover{color:#ff0000}
 .chart-box{background:#2a2a4a;border-radius:8px;padding:20px;height:500px;cursor:crosshair}
 .msg{padding:10px;font-size:13px;white-space:pre-wrap}
 .msg-error{color:#ff6b6b}
@@ -40,7 +44,7 @@ td{color:#e0e0e0}
 .result-card h4{color:#4fc3f7;margin-bottom:8px;font-size:13px}
 .weight-bar{display:flex;align-items:center;gap:8px;margin:4px 0}
 .weight-bar-fill{height:16px;border-radius:3px;min-width:2px}
-.weight-bar-label{font-size:11px;color:#aaa;min-width:140px}
+.weight-bar-label{font-size:11px;color:#aaa;min-width:120px}
 .weight-bar-value{font-size:11px;color:#fff;min-width:40px}
 .progress{background:#333;border-radius:4px;height:20px;margin-top:10px;overflow:hidden;display:none}
 .progress-bar{background:#4fc3f7;height:100%;transition:width 0.3s;display:flex;align-items:center;justify-content:center;font-size:11px;color:#000}
@@ -50,16 +54,6 @@ td{color:#e0e0e0}
 .note-item .note-time{color:#4fc3f7;font-size:11px}
 .note-item .note-text{color:#e0e0e0;margin-top:2px}
 .note-item .note-delete{color:#ff6b6b;cursor:pointer;float:right;font-size:11px}
-.asset-row{display:flex;align-items:center;gap:8px;padding:6px 10px;background:#1a1a2e;border:1px solid #333;border-radius:6px;margin:4px 0}
-.asset-row .ticker-name{font-size:12px;color:#e0e0e0;flex:1}
-.asset-row select{padding:4px 8px;font-size:11px;min-width:80px;border-radius:4px;border:1px solid #444;background:#2a2a4a;color:#fff}
-.asset-row .remove-btn{color:#ff6b6b;cursor:pointer;font-size:14px;font-weight:bold;padding:0 4px}
-.asset-row .remove-btn:hover{color:#ff0000}
-.equity-tag{color:#69f0ae;font-size:10px;font-weight:bold}
-.bond-tag{color:#ffd54f;font-size:10px;font-weight:bold}
-.allocation-bar{display:flex;height:24px;border-radius:4px;overflow:hidden;margin:8px 0}
-.allocation-bar .eq-part{background:#1b5e20;display:flex;align-items:center;justify-content:center;font-size:11px;color:#69f0ae}
-.allocation-bar .bd-part{background:#4a3800;display:flex;align-items:center;justify-content:center;font-size:11px;color:#ffd54f}
 </style>
 </head>
 <body>
@@ -75,26 +69,12 @@ td{color:#e0e0e0}
 
 <div class="section">
   <div class="row">
-    <label>Add asset:</label>
-    <input type="text" id="tickerInput" placeholder="Ticker (e.g. VOO, AGG)" onkeydown="if(event.key==='Enter')addTicker()">
-    <select id="assetClass">
-      <option value="equity">📈 Equity</option>
-      <option value="bond">📊 Bond</option>
-    </select>
+    <label>Add assets:</label>
+    <input type="text" id="tickerInput" placeholder="Ticker (e.g. VOO, AGG, VWO)" onkeydown="if(event.key==='Enter')addTicker()">
     <button class="btn btn-small btn-primary" onclick="addTicker()">Add</button>
     <button class="btn btn-secondary" onclick="clearAll()">Clear All</button>
   </div>
-  <div id="assetList"></div>
-  <div class="row" style="margin-top:12px;border-top:1px solid #333;padding-top:12px">
-    <label>Strategic Bond Allocation:</label>
-    <input type="range" id="bondSlider" min="0" max="100" value="40" style="width:200px" oninput="updateSlider()">
-    <span id="bondPct" style="color:#ffd54f;font-weight:bold;min-width:40px">40%</span>
-    <span style="font-size:11px;color:#888">(Equity: <span id="eqPct" style="color:#69f0ae">60%</span>)</span>
-  </div>
-  <div class="allocation-bar" id="allocBar">
-    <div class="eq-part" style="width:60%">Equity 60%</div>
-    <div class="bd-part" style="width:40%">Bond 40%</div>
-  </div>
+  <div class="tags" id="tickerTags"></div>
   <div class="row" style="margin-top:12px">
     <label>Data period:</label>
     <select id="dataPeriod">
@@ -119,25 +99,31 @@ td{color:#e0e0e0}
 <div class="chart-box"><canvas id="frontierChart"></canvas></div>
 <div class="msg msg-error" id="chartMsg"></div>
 <div id="selectedPortfolio"></div>
+
 <div id="results"></div>
 
 <div class="notes-section">
   <h3>📝 Notes</h3>
-  <div class="row"><textarea id="noteInput" placeholder="Add a note about your analysis..."></textarea></div>
-  <div class="row"><button class="btn btn-small btn-secondary" onclick="addNote()">Add Note</button></div>
+  <div class="row">
+    <textarea id="noteInput" placeholder="Add a note about your analysis..."></textarea>
+  </div>
+  <div class="row">
+    <button class="btn btn-small btn-secondary" onclick="addNote()">Add Note</button>
+  </div>
   <div id="notesList"></div>
 </div>
 
 <div class="msg msg-info" style="margin-top:10px">
-  Strategic allocation: set your bond/equity split, then Monte Carlo optimizes within each group separately.
-  The combined portfolio respects your strategic allocation while finding the best mix within each asset class.
+  Monte Carlo simulation generates random portfolio weights and plots risk vs return.
+  The efficient frontier is the upper edge — portfolios with the best return for each risk level.
+  Based on Modern Portfolio Theory (Markowitz). Uses weekly returns over the selected period.
 </div>
 </div>
 
 <script>
 var PROXY='https://yahoo.gretegrents.workers.dev/';
 var chart=null;
-var assets=[];
+var tickers=[];
 var priceData={};
 var allPortfolios=[];
 var validTickersGlobal=[];
@@ -147,132 +133,43 @@ var sampleStep=1;
 function addTicker(){
   var input=document.getElementById('tickerInput');
   var val=input.value.trim().toUpperCase();
-  var cls=document.getElementById('assetClass').value;
-  if(val&&!assets.find(function(a){return a.ticker===val})){
-    assets.push({ticker:val,class:cls});
-    renderAssetList();
+  if(val&&tickers.indexOf(val)===-1){
+    tickers.push(val);
+    renderTags();
   }
   input.value='';input.focus();
 }
 
-function removeAsset(ticker){
-  assets=assets.filter(function(a){return a.ticker!==ticker});
-  renderAssetList();
-}
-
-function changeClass(ticker,newClass){
-  var a=assets.find(function(a){return a.ticker===ticker});
-  if(a)a.class=newClass;
-  renderAssetList();
+function removeTicker(ticker){
+  tickers=tickers.filter(function(t){return t!==ticker});
+  renderTags();
 }
 
 function clearAll(){
-  assets=[];
-  renderAssetList();
+  tickers=[];
+  renderTags();
   if(chart){chart.destroy();chart=null;}
   document.getElementById('results').innerHTML='';
   document.getElementById('chartMsg').textContent='';
   document.getElementById('selectedPortfolio').innerHTML='';
 }
 
-function renderAssetList(){
+function renderTags(){
   var html='';
-  var eqCount=0,bdCount=0;
-  assets.forEach(function(a){
-    if(a.class==='equity')eqCount++;else bdCount++;
-    var name=tickerNames[a.ticker]?' — '+tickerNames[a.ticker]:'';
-    var tagCls=a.class==='equity'?'equity-tag':'bond-tag';
-    var tagText=a.class==='equity'?'EQUITY':'BOND';
-    html+='<div class="asset-row">';
-    html+='<span class="'+tagCls+'">'+tagText+'</span>';
-    html+='<span class="ticker-name">'+a.ticker+name+'</span>';
-    html+='<select onchange="changeClass(\''+a.ticker+'\',this.value)">';
-    html+='<option value="equity"'+(a.class==='equity'?' selected':'')+'>📈 Equity</option>';
-    html+='<option value="bond"'+(a.class==='bond'?' selected':'')+'>📊 Bond</option>';
-    html+='</select>';
-    html+='<span class="remove-btn" onclick="removeAsset(\''+a.ticker+'\')">×</span>';
-    html+='</div>';
+  tickers.forEach(function(t){
+    var name=tickerNames[t]?' — '+tickerNames[t]:'';
+    html+='<div class="tag">'+t+name+'<span class="x" onclick="removeTicker(\''+t+'\')">×</span></div>';
   });
-  if(assets.length>0){
-    html+='<div style="font-size:11px;color:#888;margin-top:4px">'+eqCount+' equity, '+bdCount+' bond assets</div>';
-  }
-  document.getElementById('assetList').innerHTML=html;
-}
-
-function updateSlider(){
-  var val=document.getElementById('bondSlider').value;
-  document.getElementById('bondPct').textContent=val+'%';
-  document.getElementById('eqPct').textContent=(100-val)+'%';
-  var bar=document.getElementById('allocBar');
-  bar.innerHTML='<div class="eq-part" style="width:'+(100-val)+'%">Equity '+(100-val)+'%</div><div class="bd-part" style="width:'+val+'%">Bond '+val+'%</div>';
+  document.getElementById('tickerTags').innerHTML=html;
 }
 
 function getLabel(ticker){
   return tickerNames[ticker]?ticker+' — '+tickerNames[ticker]:ticker;
 }
 
-function runMonteCarloForGroup(groupTickers,numSims,riskFreeRate,meanReturns,covMatrix,allTickers){
-  var n=groupTickers.length;
-  if(n===0)return{maxSharpe:null,minVol:null,portfolios:[]};
-  if(n===1){
-    var idx=allTickers.indexOf(groupTickers[0]);
-    var ret=meanReturns[groupTickers[0]];
-    var vol=Math.sqrt(covMatrix[idx][idx]);
-    var sharpe=(ret-riskFreeRate)/vol;
-    var p={ret:ret,vol:vol,sharpe:sharpe,weights:[1]};
-    return{maxSharpe:p,minVol:p,portfolios:[p]};
-  }
-
-  var indices=groupTickers.map(function(t){return allTickers.indexOf(t)});
-  var portfolios=[];
-  var maxSharpe={sharpe:-Infinity};
-  var minVol={vol:Infinity};
-
-  for(var sim=0;sim<numSims;sim++){
-    var weights=[];
-    var sum=0;
-    for(var i=0;i<n;i++){weights[i]=Math.random();sum+=weights[i];}
-    for(var i=0;i<n;i++)weights[i]/=sum;
-
-    var portReturn=0;
-    for(var i=0;i<n;i++)portReturn+=weights[i]*meanReturns[groupTickers[i]];
-
-    var portVar=0;
-    for(var i=0;i<n;i++){
-      for(var j=0;j<n;j++){
-        portVar+=weights[i]*weights[j]*covMatrix[indices[i]][indices[j]];
-      }
-    }
-    var portVol=Math.sqrt(portVar);
-    var sharpe=(portReturn-riskFreeRate)/portVol;
-
-    var p={ret:portReturn,vol:portVol,sharpe:sharpe,weights:weights.slice()};
-    portfolios.push(p);
-
-    if(sharpe>maxSharpe.sharpe)maxSharpe=p;
-    if(portVol<minVol.vol)minVol=p;
-  }
-  return{maxSharpe:maxSharpe,minVol:minVol,portfolios:portfolios};
-}
-
 async function runOptimizer(){
-  var equityAssets=assets.filter(function(a){return a.class==='equity'});
-  var bondAssets=assets.filter(function(a){return a.class==='bond'});
-
-  if(assets.length<2){
+  if(tickers.length<2){
     document.getElementById('chartMsg').textContent='Add at least 2 assets to optimize';
-    return;
-  }
-
-  var bondAlloc=parseInt(document.getElementById('bondSlider').value)/100;
-  var eqAlloc=1-bondAlloc;
-
-  if(bondAlloc>0&&bondAssets.length===0){
-    document.getElementById('chartMsg').textContent='Add at least 1 bond asset or set bond allocation to 0%';
-    return;
-  }
-  if(eqAlloc>0&&equityAssets.length===0){
-    document.getElementById('chartMsg').textContent='Add at least 1 equity asset or set bond allocation to 100%';
     return;
   }
 
@@ -292,12 +189,11 @@ async function runOptimizer(){
   var start=new Date();
   start.setFullYear(start.getFullYear()-years);
   var period1=Math.floor(start.getTime()/1000);
-  var allTickers=assets.map(function(a){return a.ticker});
   var loaded=0;
   var failed=[];
 
-  for(var i=0;i<allTickers.length;i++){
-    var ticker=allTickers[i];
+  for(var i=0;i<tickers.length;i++){
+    var ticker=tickers[i];
     try{
       var url=PROXY+'?symbol='+encodeURIComponent(ticker)+'&period1='+period1+'&period2='+now+'&interval=1wk';
       var resp=await fetch(url);
@@ -317,20 +213,23 @@ async function runOptimizer(){
       }else{failed.push(ticker);}
     }catch(e){failed.push(ticker);}
     loaded++;
-    document.getElementById('progressBar').style.width=Math.round(loaded/allTickers.length*30)+'%';
+    document.getElementById('progressBar').style.width=Math.round(loaded/tickers.length*30)+'%';
   }
 
-  renderAssetList();
+  renderTags();
 
   if(failed.length>0){
-    document.getElementById('chartMsg').textContent='Failed: '+failed.join(', ');
+    document.getElementById('chartMsg').textContent='Failed to load: '+failed.join(', ');
     document.getElementById('progressBox').style.display='none';
     return;
   }
 
   var validTickers=Object.keys(priceData);
-  var validEquity=equityAssets.map(function(a){return a.ticker}).filter(function(t){return priceData[t]});
-  var validBonds=bondAssets.map(function(a){return a.ticker}).filter(function(t){return priceData[t]});
+  if(validTickers.length<2){
+    document.getElementById('chartMsg').textContent='Need at least 2 assets with data';
+    document.getElementById('progressBox').style.display='none';
+    return;
+  }
 
   document.getElementById('chartMsg').textContent='Calculating returns...';
 
@@ -339,15 +238,21 @@ async function runOptimizer(){
   validTickers.forEach(function(t){
     var prices=priceData[t];
     var ret=[];
-    for(var i=1;i<prices.length;i++)ret.push((prices[i]-prices[i-1])/prices[i-1]);
+    for(var i=1;i<prices.length;i++){
+      ret.push((prices[i]-prices[i-1])/prices[i-1]);
+    }
     returns[t]=ret;
     if(ret.length<minLen)minLen=ret.length;
   });
-  validTickers.forEach(function(t){returns[t]=returns[t].slice(returns[t].length-minLen)});
+
+  validTickers.forEach(function(t){
+    returns[t]=returns[t].slice(returns[t].length-minLen);
+  });
 
   var meanReturns={};
   validTickers.forEach(function(t){
-    var sum=0;returns[t].forEach(function(r){sum+=r});
+    var sum=0;
+    returns[t].forEach(function(r){sum+=r});
     meanReturns[t]=(sum/returns[t].length)*52;
   });
 
@@ -366,63 +271,53 @@ async function runOptimizer(){
     }
   }
 
-  document.getElementById('chartMsg').textContent='Running Monte Carlo...';
+  document.getElementById('chartMsg').textContent='Running Monte Carlo ('+numSims+' portfolios)...';
 
-  // Run optimization for each group
-  var eqResult=runMonteCarloForGroup(validEquity,numSims,riskFreeRate,meanReturns,covMatrix,validTickers);
-  var bdResult=runMonteCarloForGroup(validBonds,Math.min(numSims,5000),riskFreeRate,meanReturns,covMatrix,validTickers);
+  var portfolios=[];
+  var maxSharpe={sharpe:-Infinity,weights:null,ret:0,vol:0};
+  var minVol={vol:Infinity,weights:null,ret:0,sharpe:0};
 
-  // Combine portfolios
-  var combinedPortfolios=[];
-  var combinedMax={sharpe:-Infinity};
-  var combinedMin={vol:Infinity};
+  for(var sim=0;sim<numSims;sim++){
+    var weights=[];
+    var sum=0;
+    for(var i=0;i<n;i++){weights[i]=Math.random();sum+=weights[i];}
+    for(var i=0;i<n;i++)weights[i]/=sum;
 
-  var eqPorts=eqResult.portfolios;
-  var bdPorts=bdResult.portfolios;
-  var combCount=Math.min(numSims,eqPorts.length*10);
+    var portReturn=0;
+    for(var i=0;i<n;i++)portReturn+=weights[i]*meanReturns[validTickers[i]];
 
-  for(var sim=0;sim<combCount;sim++){
-    var eqP=eqPorts[Math.floor(Math.random()*eqPorts.length)];
-    var bdP=bdPorts.length>0?bdPorts[Math.floor(Math.random()*bdPorts.length)]:null;
-
-    var combinedReturn=eqP.ret*eqAlloc+(bdP?bdP.ret*bondAlloc:0);
-
-    // Combined variance (including cross-correlations)
-    var combinedVar=0;
-    var allWeights=[];
-    for(var i=0;i<validTickers.length;i++){
-      var w=0;
-      var eqIdx=validEquity.indexOf(validTickers[i]);
-      var bdIdx=validBonds.indexOf(validTickers[i]);
-      if(eqIdx>=0)w+=eqP.weights[eqIdx]*eqAlloc;
-      if(bdIdx>=0&&bdP)w+=bdP.weights[bdIdx]*bondAlloc;
-      allWeights.push(w);
-    }
+    var portVar=0;
     for(var i=0;i<n;i++){
       for(var j=0;j<n;j++){
-        combinedVar+=allWeights[i]*allWeights[j]*covMatrix[i][j];
+        portVar+=weights[i]*weights[j]*covMatrix[i][j];
       }
     }
-    var combinedVol=Math.sqrt(combinedVar);
-    var combinedSharpe=(combinedReturn-riskFreeRate)/combinedVol;
+    var portVol=Math.sqrt(portVar);
+    var sharpe=(portReturn-riskFreeRate)/portVol;
 
-    var cp={ret:combinedReturn,vol:combinedVol,sharpe:combinedSharpe,weights:allWeights};
-    combinedPortfolios.push(cp);
+    portfolios.push({ret:portReturn,vol:portVol,sharpe:sharpe,weights:weights.slice()});
 
-    if(combinedSharpe>combinedMax.sharpe)combinedMax=cp;
-    if(combinedVol<combinedMin.vol)combinedMin=cp;
+    if(sharpe>maxSharpe.sharpe){
+      maxSharpe={sharpe:sharpe,weights:weights.slice(),ret:portReturn,vol:portVol};
+    }
+    if(portVol<minVol.vol){
+      minVol={vol:portVol,weights:weights.slice(),ret:portReturn,sharpe:sharpe};
+    }
 
-    if(sim%2000===0)document.getElementById('progressBar').style.width=(30+Math.round(sim/combCount*60))+'%';
+    if(sim%2000===0){
+      document.getElementById('progressBar').style.width=(30+Math.round(sim/numSims*60))+'%';
+    }
   }
 
   document.getElementById('progressBar').style.width='95%';
+  document.getElementById('chartMsg').textContent='Rendering...';
 
-  allPortfolios=combinedPortfolios;
+  allPortfolios=portfolios;
   validTickersGlobal=validTickers;
 
   await new Promise(function(r){setTimeout(r,50)});
-  plotFrontier(combinedPortfolios,combinedMax,combinedMin,validTickers,meanReturns,covMatrix,riskFreeRate);
-  showResults(validTickers,meanReturns,covMatrix,combinedMax,combinedMin,riskFreeRate,eqAlloc,bondAlloc,validEquity,validBonds);
+  plotFrontier(portfolios,maxSharpe,minVol,validTickers,meanReturns,covMatrix,riskFreeRate);
+  showResults(validTickers,meanReturns,covMatrix,maxSharpe,minVol,riskFreeRate);
 
   document.getElementById('progressBox').style.display='none';
   document.getElementById('chartMsg').textContent='';
@@ -446,20 +341,55 @@ function plotFrontier(portfolios,maxSharpe,minVol,validTickers,meanReturns,covMa
     type:'scatter',
     data:{
       datasets:[
-        {label:'Combined Portfolios',data:scatterData,backgroundColor:'rgba(79,195,247,0.15)',borderColor:'rgba(79,195,247,0.3)',pointRadius:1.5,pointHoverRadius:5},
-        {label:'Max Sharpe ('+maxSharpe.sharpe.toFixed(2)+')',data:[{x:maxSharpe.vol*100,y:maxSharpe.ret*100}],backgroundColor:'#69f0ae',borderColor:'#69f0ae',pointRadius:10,pointStyle:'star'},
-        {label:'Min Volatility',data:[{x:minVol.vol*100,y:minVol.ret*100}],backgroundColor:'#ffd54f',borderColor:'#ffd54f',pointRadius:10,pointStyle:'triangle'},
-        {label:'Individual Assets',data:assetPoints,backgroundColor:'#ff6b6b',borderColor:'#ff6b6b',pointRadius:7,pointStyle:'circle'}
+        {
+          label:'Simulated Portfolios',
+          data:scatterData,
+          backgroundColor:'rgba(79,195,247,0.15)',
+          borderColor:'rgba(79,195,247,0.3)',
+          pointRadius:1.5,
+          pointHoverRadius:5
+        },
+        {
+          label:'Max Sharpe ('+maxSharpe.sharpe.toFixed(2)+')',
+          data:[{x:maxSharpe.vol*100,y:maxSharpe.ret*100}],
+          backgroundColor:'#69f0ae',
+          borderColor:'#69f0ae',
+          pointRadius:10,
+          pointStyle:'star'
+        },
+        {
+          label:'Min Volatility',
+          data:[{x:minVol.vol*100,y:minVol.ret*100}],
+          backgroundColor:'#ffd54f',
+          borderColor:'#ffd54f',
+          pointRadius:10,
+          pointStyle:'triangle'
+        },
+        {
+          label:'Individual Assets',
+          data:assetPoints,
+          backgroundColor:'#ff6b6b',
+          borderColor:'#ff6b6b',
+          pointRadius:7,
+          pointStyle:'circle'
+        }
       ]
     },
     options:{
-      responsive:true,maintainAspectRatio:false,
+      responsive:true,
+      maintainAspectRatio:false,
       plugins:{
         legend:{position:'top',labels:{color:'#e0e0e0',usePointStyle:true,font:{size:11}}},
-        tooltip:{callbacks:{label:function(ctx){
-          if(ctx.datasetIndex===3)return getLabel(validTickersGlobal[ctx.dataIndex])+': Return '+ctx.parsed.y.toFixed(1)+'%, Risk '+ctx.parsed.x.toFixed(1)+'%';
-          return 'Return: '+ctx.parsed.y.toFixed(1)+'%, Risk: '+ctx.parsed.x.toFixed(1)+'% (click for details)';
-        }}}
+        tooltip:{
+          callbacks:{
+            label:function(ctx){
+              if(ctx.datasetIndex===3){
+                return getLabel(validTickersGlobal[ctx.dataIndex])+': Return '+ctx.parsed.y.toFixed(1)+'%, Risk '+ctx.parsed.x.toFixed(1)+'%';
+              }
+              return 'Return: '+ctx.parsed.y.toFixed(1)+'%, Risk: '+ctx.parsed.x.toFixed(1)+'% (click for details)';
+            }
+          }
+        }
       },
       scales:{
         x:{title:{display:true,text:'Annual Volatility (Risk) %',color:'#aaa'},ticks:{color:'#888'},grid:{color:'#333'}},
@@ -472,38 +402,135 @@ function plotFrontier(portfolios,maxSharpe,minVol,validTickers,meanReturns,covMa
     var points=chart.getElementsAtEventForMode(evt,'nearest',{intersect:true},true);
     if(points.length>0&&points[0].datasetIndex===0){
       var portfolioIdx=points[0].index*sampleStep;
-      if(portfolioIdx<allPortfolios.length)showSelectedPortfolio(allPortfolios[portfolioIdx]);
+      if(portfolioIdx<allPortfolios.length){
+        showSelectedPortfolio(allPortfolios[portfolioIdx]);
+      }
     }
   };
 }
 
 function showSelectedPortfolio(p){
   var colors=['#4fc3f7','#ff6b6b','#69f0ae','#ffd54f','#ce93d8','#ff8a65','#80cbc4','#f48fb1','#aed581','#90a4ae'];
-  var html='<div class="result-card" style="margin-top:15px"><h4>📍 Selected Portfolio</h4>';
+  var html='<div class="result-card" style="margin-top:15px"><h4>📍 Selected Portfolio (click any dot to explore)</h4>';
   html+='<div style="margin-bottom:8px"><span style="color:#69f0ae">Return: '+(p.ret*100).toFixed(1)+'%</span> | ';
   html+='<span style="color:#ffd54f">Risk: '+(p.vol*100).toFixed(1)+'%</span> | ';
   html+='<span style="color:#4fc3f7">Sharpe: '+p.sharpe.toFixed(2)+'</span></div>';
 
   var sorted=[];
   for(var i=0;i<validTickersGlobal.length;i++){
-    var a=assets.find(function(x){return x.ticker===validTickersGlobal[i]});
-    sorted.push({ticker:validTickersGlobal[i],weight:p.weights[i],color:colors[i%colors.length],class:a?a.class:'equity'});
+    sorted.push({ticker:validTickersGlobal[i],weight:p.weights[i],color:colors[i%colors.length]});
   }
   sorted.sort(function(a,b){return b.weight-a.weight});
 
   sorted.forEach(function(s){
     var w=s.weight*100;
     if(w<0.5)return;
-    var tag=s.class==='bond'?'<span class="bond-tag">BOND</span> ':'<span class="equity-tag">EQ</span> ';
     html+='<div class="weight-bar">';
-    html+='<span class="weight-bar-label">'+tag+getLabel(s.ticker)+'</span>';
+    html+='<span class="weight-bar-label" title="'+getLabel(s.ticker)+'">'+getLabel(s.ticker)+'</span>';
     html+='<div class="weight-bar-fill" style="width:'+Math.min(w,100)*2+'px;background:'+s.color+'"></div>';
-    html+='<span class="weight-bar-value">'+w.toFixed(1)+'%</span></div>';
+    html+='<span class="weight-bar-value">'+w.toFixed(1)+'%</span>';
+    html+='</div>';
   });
   html+='</div>';
   document.getElementById('selectedPortfolio').innerHTML=html;
 }
 
-function showResults(validTickers,meanReturns,covMatrix,maxSharpe,minVol,riskFreeRate,eqAlloc,bondAlloc,validEquity,validBonds){
+function showResults(validTickers,meanReturns,covMatrix,maxSharpe,minVol,riskFreeRate){
   var colors=['#4fc3f7','#ff6b6b','#69f0ae','#ffd54f','#ce93d8','#ff8a65','#80cbc4','#f48fb1','#aed581','#90a4ae'];
-  var html='<div style="margin-top:15px;padding:10px;background:#1a3a2a;border
+  var html='<div class="results-grid">';
+
+  html+='<div class="result-card"><h4>⭐ Maximum Sharpe Ratio Portfolio</h4>';
+  html+='<div style="font-size:12px;color:#aaa;margin-bottom:8px">Best risk-adjusted return</div>';
+  html+='<div style="margin-bottom:8px"><span style="color:#69f0ae">Return: '+(maxSharpe.ret*100).toFixed(1)+'%</span> | ';
+  html+='<span style="color:#ffd54f">Risk: '+(maxSharpe.vol*100).toFixed(1)+'%</span> | ';
+  html+='<span style="color:#4fc3f7">Sharpe: '+maxSharpe.sharpe.toFixed(2)+'</span></div>';
+  for(var i=0;i<validTickers.length;i++){
+    var w=maxSharpe.weights[i]*100;
+    if(w<0.5)continue;
+    html+='<div class="weight-bar"><span class="weight-bar-label">'+getLabel(validTickers[i])+'</span>';
+    html+='<div class="weight-bar-fill" style="width:'+Math.min(w,100)*2+'px;background:'+colors[i%colors.length]+'"></div>';
+    html+='<span class="weight-bar-value">'+w.toFixed(1)+'%</span></div>';
+  }
+  html+='</div>';
+
+  html+='<div class="result-card"><h4>🛡️ Minimum Volatility Portfolio</h4>';
+  html+='<div style="font-size:12px;color:#aaa;margin-bottom:8px">Lowest risk combination</div>';
+  html+='<div style="margin-bottom:8px"><span style="color:#69f0ae">Return: '+(minVol.ret*100).toFixed(1)+'%</span> | ';
+  html+='<span style="color:#ffd54f">Risk: '+(minVol.vol*100).toFixed(1)+'%</span> | ';
+  html+='<span style="color:#4fc3f7">Sharpe: '+minVol.sharpe.toFixed(2)+'</span></div>';
+  for(var i=0;i<validTickers.length;i++){
+    var w=minVol.weights[i]*100;
+    if(w<0.5)continue;
+    html+='<div class="weight-bar"><span class="weight-bar-label">'+getLabel(validTickers[i])+'</span>';
+    html+='<div class="weight-bar-fill" style="width:'+Math.min(w,100)*2+'px;background:'+colors[i%colors.length]+'"></div>';
+    html+='<span class="weight-bar-value">'+w.toFixed(1)+'%</span></div>';
+  }
+  html+='</div></div>';
+
+  html+='<div class="section" style="margin-top:15px"><h3>Individual Asset Statistics</h3>';
+  html+='<table><tr><th style="text-align:left">Asset</th><th>Annual Return</th><th>Annual Volatility</th><th>Sharpe Ratio</th></tr>';
+  for(var i=0;i<validTickers.length;i++){
+    var ret=meanReturns[validTickers[i]]*100;
+    var vol=Math.sqrt(covMatrix[i][i])*100;
+    var sharpe=(meanReturns[validTickers[i]]-riskFreeRate)/Math.sqrt(covMatrix[i][i]);
+    html+='<tr><td style="text-align:left">'+getLabel(validTickers[i])+'</td>';
+    html+='<td class="'+(ret>=0?'positive':'negative')+'">'+ret.toFixed(1)+'%</td>';
+    html+='<td>'+vol.toFixed(1)+'%</td>';
+    html+='<td>'+sharpe.toFixed(2)+'</td></tr>';
+  }
+  html+='</table></div>';
+
+  html+='<div class="section"><h3>Correlation Matrix</h3>';
+  html+='<table><tr><th></th>';
+  validTickers.forEach(function(t){html+='<th title="'+getLabel(t)+'">'+t+'</th>'});
+  html+='</tr>';
+  for(var i=0;i<validTickers.length;i++){
+    html+='<tr><td style="font-weight:bold" title="'+getLabel(validTickers[i])+'">'+validTickers[i]+'</td>';
+    for(var j=0;j<validTickers.length;j++){
+      var corr=covMatrix[i][j]/(Math.sqrt(covMatrix[i][i])*Math.sqrt(covMatrix[j][j]));
+      var color=corr>0.7?'#ff6b6b':corr<0.3?'#69f0ae':'#e0e0e0';
+      html+='<td style="color:'+color+'">'+corr.toFixed(2)+'</td>';
+    }
+    html+='</tr>';
+  }
+  html+='</table>';
+  html+='<div style="font-size:11px;color:#888;margin-top:5px">🟢 Low correlation (good diversification) | 🔴 High correlation (similar movement) | Hover headers for full names</div></div>';
+
+  document.getElementById('results').innerHTML=html;
+}
+
+// Notes
+function addNote(){
+  var text=document.getElementById('noteInput').value.trim();
+  if(!text)return;
+  var notes=JSON.parse(localStorage.getItem('optimizerNotes')||'[]');
+  notes.unshift({time:new Date().toLocaleString(),text:text,tickers:tickers.slice()});
+  localStorage.setItem('optimizerNotes',JSON.stringify(notes));
+  document.getElementById('noteInput').value='';
+  renderNotes();
+}
+
+function deleteNote(idx){
+  var notes=JSON.parse(localStorage.getItem('optimizerNotes')||'[]');
+  notes.splice(idx,1);
+  localStorage.setItem('optimizerNotes',JSON.stringify(notes));
+  renderNotes();
+}
+
+function renderNotes(){
+  var notes=JSON.parse(localStorage.getItem('optimizerNotes')||'[]');
+  var html='';
+  notes.forEach(function(n,i){
+    html+='<div class="note-item">';
+    html+='<span class="note-delete" onclick="deleteNote('+i+')">✕ delete</span>';
+    html+='<div class="note-time">'+n.time+(n.tickers&&n.tickers.length?' — ['+n.tickers.join(', ')+']':'')+'</div>';
+    html+='<div class="note-text">'+n.text+'</div>';
+    html+='</div>';
+  });
+  document.getElementById('notesList').innerHTML=html;
+}
+
+renderNotes();
+</script>
+</body>
+</html>
