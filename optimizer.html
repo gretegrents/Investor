@@ -1,0 +1,470 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Portfolio Optimizer</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#1a1a2e;color:#e0e0e0;min-height:100vh;padding:20px}
+.container{max-width:1400px;margin:0 auto}
+h1{text-align:center;margin-bottom:20px;color:#fff}
+h3{color:#4fc3f7;margin-bottom:10px;font-size:14px}
+.section{background:#2a2a4a;padding:15px;border-radius:8px;margin-bottom:20px}
+.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:10px}
+input[type=text],input[type=number]{padding:8px 12px;border-radius:4px;border:1px solid #444;background:#1a1a2e;color:#fff;width:200px;font-size:13px}
+input[type=number]{width:80px}
+.btn{padding:8px 16px;border-radius:4px;border:none;cursor:pointer;font-size:13px}
+.btn-primary{background:#4fc3f7;color:#000}
+.btn-primary:hover{background:#81d4fa}
+.btn-secondary{background:#444;color:#fff}
+.btn-secondary:hover{background:#555}
+.btn-small{padding:4px 10px;font-size:12px}
+.tags{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.tag{display:flex;align-items:center;gap:4px;background:#3a3a5a;border:1px solid #555;border-radius:16px;padding:4px 10px;font-size:12px;color:#e0e0e0}
+.tag .x{cursor:pointer;color:#ff6b6b;font-weight:bold;margin-left:4px;font-size:14px}
+.tag .x:hover{color:#ff0000}
+.chart-box{background:#2a2a4a;border-radius:8px;padding:20px;height:500px}
+.msg{padding:10px;font-size:13px;white-space:pre-wrap}
+.msg-error{color:#ff6b6b}
+.msg-info{color:#888}
+.nav{display:flex;gap:15px;margin-bottom:10px}
+.nav a{color:#4fc3f7;text-decoration:none;font-size:13px}
+label{font-size:12px;color:#aaa;margin-right:4px}
+table{width:100%;border-collapse:collapse;background:#2a2a4a;border-radius:8px;overflow:hidden;margin-top:10px}
+th,td{padding:8px 12px;text-align:center;border-bottom:1px solid #333;font-size:12px}
+th{background:#333;color:#aaa;font-weight:500}
+td{color:#e0e0e0}
+.positive{color:#69f0ae}
+.negative{color:#ff6b6b}
+.highlight-row{background:#1a3a2a}
+.results-grid{display:grid;grid-template-columns:1fr 1fr;gap:15px;margin-top:15px}
+.result-card{background:#1a1a2e;border:1px solid #333;border-radius:8px;padding:15px}
+.result-card h4{color:#4fc3f7;margin-bottom:8px;font-size:13px}
+.weight-bar{display:flex;align-items:center;gap:8px;margin:4px 0}
+.weight-bar-fill{height:16px;border-radius:3px;min-width:2px}
+.weight-bar-label{font-size:11px;color:#aaa;min-width:60px}
+.weight-bar-value{font-size:11px;color:#fff;min-width:40px}
+.progress{background:#333;border-radius:4px;height:20px;margin-top:10px;overflow:hidden;display:none}
+.progress-bar{background:#4fc3f7;height:100%;transition:width 0.3s;display:flex;align-items:center;justify-content:center;font-size:11px;color:#000}
+</style>
+</head>
+<body>
+<div class="container">
+<div class="nav">
+  <a href="stocks.html">📈 Stocks</a>
+  <a href="funds.html">📊 Funds</a>
+  <a href="countries.html">🌍 Countries</a>
+  <a href="sectors.html">🏭 Sectors</a>
+  <a href="index.html">🏦 Bonds Calc</a>
+</div>
+<h1>⚡ Portfolio Optimizer</h1>
+
+<div class="section">
+  <div class="row">
+    <label>Add assets:</label>
+    <input type="text" id="tickerInput" placeholder="Ticker (e.g. VOO, AGG, VWO)" onkeydown="if(event.key==='Enter')addTicker()">
+    <button class="btn btn-small btn-primary" onclick="addTicker()">Add</button>
+    <button class="btn btn-secondary" onclick="clearAll()">Clear All</button>
+  </div>
+  <div class="tags" id="tickerTags"></div>
+  <div class="row" style="margin-top:12px">
+    <label>Data period:</label>
+    <select id="dataPeriod" style="padding:6px;border-radius:4px;border:1px solid #444;background:#1a1a2e;color:#fff">
+      <option value="3">3 years</option>
+      <option value="5" selected>5 years</option>
+      <option value="10">10 years</option>
+    </select>
+    <label>Simulations:</label>
+    <input type="number" id="numSims" value="10000" min="1000" max="50000" step="1000">
+    <label>Risk-free rate %:</label>
+    <input type="number" id="riskFree" value="4.0" min="0" max="10" step="0.5" style="width:60px">
+  </div>
+  <div class="row">
+    <button class="btn btn-primary" onclick="runOptimizer()">🚀 Run Optimization</button>
+  </div>
+  <div class="progress" id="progressBox">
+    <div class="progress-bar" id="progressBar" style="width:0%">0%</div>
+  </div>
+</div>
+
+<div class="chart-box"><canvas id="frontierChart"></canvas></div>
+<div class="msg msg-error" id="chartMsg"></div>
+
+<div id="results"></div>
+
+<div class="msg msg-info" style="margin-top:10px">
+  Monte Carlo simulation generates random portfolio weights and plots risk vs return.
+  The efficient frontier is the upper edge — portfolios with the best return for each risk level.
+  Based on Modern Portfolio Theory (Markowitz). Uses weekly returns over the selected period.
+</div>
+</div>
+
+<script>
+var PROXY='https://yahoo.gretegrents.workers.dev/';
+var chart=null;
+var tickers=[];
+var priceData={};
+
+function addTicker(){
+  var input=document.getElementById('tickerInput');
+  var val=input.value.trim().toUpperCase();
+  if(val&&tickers.indexOf(val)===-1){
+    tickers.push(val);
+    renderTags();
+  }
+  input.value='';input.focus();
+}
+
+function removeTicker(ticker){
+  tickers=tickers.filter(function(t){return t!==ticker});
+  renderTags();
+}
+
+function clearAll(){
+  tickers=[];
+  renderTags();
+  if(chart){chart.destroy();chart=null;}
+  document.getElementById('results').innerHTML='';
+  document.getElementById('chartMsg').textContent='';
+}
+
+function renderTags(){
+  var html='';
+  tickers.forEach(function(t){
+    html+='<div class="tag">'+t+'<span class="x" onclick="removeTicker(\''+t+'\')">×</span></div>';
+  });
+  document.getElementById('tickerTags').innerHTML=html;
+}
+
+async function runOptimizer(){
+  if(tickers.length<2){
+    document.getElementById('chartMsg').textContent='Add at least 2 assets to optimize';
+    return;
+  }
+
+  var years=parseInt(document.getElementById('dataPeriod').value);
+  var numSims=parseInt(document.getElementById('numSims').value);
+  var riskFreeRate=parseFloat(document.getElementById('riskFree').value)/100;
+
+  document.getElementById('chartMsg').textContent='Fetching price data...';
+  document.getElementById('progressBox').style.display='block';
+  document.getElementById('progressBar').style.width='0%';
+  document.getElementById('results').innerHTML='';
+
+  // Fetch data
+  priceData={};
+  var now=Math.floor(Date.now()/1000);
+  var start=new Date();
+  start.setFullYear(start.getFullYear()-years);
+  var period1=Math.floor(start.getTime()/1000);
+  var loaded=0;
+  var failed=[];
+
+  for(var i=0;i<tickers.length;i++){
+    var ticker=tickers[i];
+    try{
+      var url=PROXY+'?symbol='+encodeURIComponent(ticker)+'&period1='+period1+'&period2='+now+'&interval=1wk';
+      var resp=await fetch(url);
+      var data=await resp.json();
+      if(data.chart&&data.chart.result&&data.chart.result[0]){
+        var result=data.chart.result[0];
+        var timestamps=result.timestamp||[];
+        var closes=result.indicators.quote[0].close||[];
+        var prices=[];
+        for(var j=0;j<timestamps.length;j++){
+          if(closes[j]!==null)prices.push(closes[j]);
+        }
+        if(prices.length>10)priceData[ticker]=prices;
+        else failed.push(ticker);
+      }else{failed.push(ticker);}
+    }catch(e){failed.push(ticker);}
+    loaded++;
+    document.getElementById('progressBar').style.width=Math.round(loaded/tickers.length*30)+'%';
+  }
+
+  if(failed.length>0){
+    document.getElementById('chartMsg').textContent='Failed to load: '+failed.join(', ');
+    document.getElementById('progressBox').style.display='none';
+    return;
+  }
+
+  var validTickers=Object.keys(priceData);
+  if(validTickers.length<2){
+    document.getElementById('chartMsg').textContent='Need at least 2 assets with data';
+    document.getElementById('progressBox').style.display='none';
+    return;
+  }
+
+  document.getElementById('chartMsg').textContent='Calculating returns...';
+
+  // Calculate weekly returns
+  var returns={};
+  var minLen=Infinity;
+  validTickers.forEach(function(t){
+    var prices=priceData[t];
+    var ret=[];
+    for(var i=1;i<prices.length;i++){
+      ret.push((prices[i]-prices[i-1])/prices[i-1]);
+    }
+    returns[t]=ret;
+    if(ret.length<minLen)minLen=ret.length;
+  });
+
+  // Trim to same length
+  validTickers.forEach(function(t){
+    returns[t]=returns[t].slice(returns[t].length-minLen);
+  });
+
+  // Calculate mean returns (annualized)
+  var meanReturns={};
+  validTickers.forEach(function(t){
+    var sum=0;
+    returns[t].forEach(function(r){sum+=r});
+    meanReturns[t]=(sum/returns[t].length)*52;
+  });
+
+  // Calculate covariance matrix
+  var n=validTickers.length;
+  var covMatrix=[];
+  for(var i=0;i<n;i++){
+    covMatrix[i]=[];
+    for(var j=0;j<n;j++){
+      var sum=0;
+      var meanI=meanReturns[validTickers[i]]/52;
+      var meanJ=meanReturns[validTickers[j]]/52;
+      for(var k=0;k<minLen;k++){
+        sum+=(returns[validTickers[i]][k]-meanI)*(returns[validTickers[j]][k]-meanJ);
+      }
+      covMatrix[i][j]=(sum/(minLen-1))*52;
+    }
+  }
+
+  document.getElementById('chartMsg').textContent='Running Monte Carlo simulation ('+numSims+' portfolios)...';
+
+  // Monte Carlo simulation
+  var portfolios=[];
+  var maxSharpe={sharpe:-Infinity,weights:null,ret:0,vol:0};
+  var minVol={vol:Infinity,weights:null,ret:0,sharpe:0};
+
+  for(var sim=0;sim<numSims;sim++){
+    // Random weights
+    var weights=[];
+    var sum=0;
+    for(var i=0;i<n;i++){
+      weights[i]=Math.random();
+      sum+=weights[i];
+    }
+    for(var i=0;i<n;i++)weights[i]/=sum;
+
+    // Portfolio return
+    var portReturn=0;
+    for(var i=0;i<n;i++)portReturn+=weights[i]*meanReturns[validTickers[i]];
+
+    // Portfolio volatility
+    var portVar=0;
+    for(var i=0;i<n;i++){
+      for(var j=0;j<n;j++){
+        portVar+=weights[i]*weights[j]*covMatrix[i][j];
+      }
+    }
+    var portVol=Math.sqrt(portVar);
+
+    // Sharpe ratio
+    var sharpe=(portReturn-riskFreeRate)/portVol;
+
+    portfolios.push({ret:portReturn,vol:portVol,sharpe:sharpe,weights:weights.slice()});
+
+    if(sharpe>maxSharpe.sharpe){
+      maxSharpe={sharpe:sharpe,weights:weights.slice(),ret:portReturn,vol:portVol};
+    }
+    if(portVol<minVol.vol){
+      minVol={vol:portVol,weights:weights.slice(),ret:portReturn,sharpe:sharpe};
+    }
+
+    if(sim%2000===0){
+      document.getElementById('progressBar').style.width=(30+Math.round(sim/numSims*60))+'%';
+    }
+  }
+
+  document.getElementById('progressBar').style.width='95%';
+  document.getElementById('chartMsg').textContent='Rendering...';
+
+  // Plot
+  await new Promise(function(r){setTimeout(r,50)});
+  plotFrontier(portfolios,maxSharpe,minVol,validTickers,meanReturns,covMatrix,riskFreeRate);
+  showResults(validTickers,meanReturns,covMatrix,maxSharpe,minVol,riskFreeRate);
+
+  document.getElementById('progressBox').style.display='none';
+  document.getElementById('chartMsg').textContent='';
+}
+
+function plotFrontier(portfolios,maxSharpe,minVol,validTickers,meanReturns,covMatrix,riskFreeRate){
+  if(chart)chart.destroy();
+
+  // Sample portfolios for plotting (max 3000 points for performance)
+  var step=Math.max(1,Math.floor(portfolios.length/3000));
+  var scatterData=[];
+  for(var i=0;i<portfolios.length;i+=step){
+    var p=portfolios[i];
+    scatterData.push({x:p.vol*100,y:p.ret*100});
+  }
+
+  // Individual assets
+  var assetPoints=[];
+  for(var i=0;i<validTickers.length;i++){
+    var vol=Math.sqrt(covMatrix[i][i])*100;
+    var ret=meanReturns[validTickers[i]]*100;
+    assetPoints.push({x:vol,y:ret});
+  }
+
+  chart=new Chart(document.getElementById('frontierChart'),{
+    type:'scatter',
+    data:{
+      datasets:[
+        {
+          label:'Simulated Portfolios',
+          data:scatterData,
+          backgroundColor:'rgba(79,195,247,0.15)',
+          borderColor:'rgba(79,195,247,0.3)',
+          pointRadius:1.5,
+          pointHoverRadius:4
+        },
+        {
+          label:'Max Sharpe ('+maxSharpe.sharpe.toFixed(2)+')',
+          data:[{x:maxSharpe.vol*100,y:maxSharpe.ret*100}],
+          backgroundColor:'#69f0ae',
+          borderColor:'#69f0ae',
+          pointRadius:10,
+          pointStyle:'star'
+        },
+        {
+          label:'Min Volatility',
+          data:[{x:minVol.vol*100,y:minVol.ret*100}],
+          backgroundColor:'#ffd54f',
+          borderColor:'#ffd54f',
+          pointRadius:10,
+          pointStyle:'triangle'
+        },
+        {
+          label:'Individual Assets',
+          data:assetPoints,
+          backgroundColor:'#ff6b6b',
+          borderColor:'#ff6b6b',
+          pointRadius:7,
+          pointStyle:'circle'
+        }
+      ]
+    },
+    options:{
+      responsive:true,
+      maintainAspectRatio:false,
+      plugins:{
+        legend:{position:'top',labels:{color:'#e0e0e0',usePointStyle:true,font:{size:11}}},
+        tooltip:{
+          callbacks:{
+            label:function(ctx){
+              if(ctx.datasetIndex===3){
+                return validTickers[ctx.dataIndex]+': Return '+ctx.parsed.y.toFixed(1)+'%, Risk '+ctx.parsed.x.toFixed(1)+'%';
+              }
+              return 'Return: '+ctx.parsed.y.toFixed(1)+'%, Risk: '+ctx.parsed.x.toFixed(1)+'%';
+            }
+          }
+        }
+      },
+      scales:{
+        x:{
+          title:{display:true,text:'Annual Volatility (Risk) %',color:'#aaa'},
+          ticks:{color:'#888'},
+          grid:{color:'#333'}
+        },
+        y:{
+          title:{display:true,text:'Annual Expected Return %',color:'#aaa'},
+          ticks:{color:'#888'},
+          grid:{color:'#333'}
+        }
+      }
+    }
+  });
+}
+
+function showResults(validTickers,meanReturns,covMatrix,maxSharpe,minVol,riskFreeRate){
+  var colors=['#4fc3f7','#ff6b6b','#69f0ae','#ffd54f','#ce93d8','#ff8a65','#80cbc4','#f48fb1','#aed581','#90a4ae'];
+
+  var html='<div class="results-grid">';
+
+  // Max Sharpe Portfolio
+  html+='<div class="result-card"><h4>⭐ Maximum Sharpe Ratio Portfolio</h4>';
+  html+='<div style="font-size:12px;color:#aaa;margin-bottom:8px">Best risk-adjusted return</div>';
+  html+='<div style="margin-bottom:8px"><span style="color:#69f0ae">Return: '+(maxSharpe.ret*100).toFixed(1)+'%</span> | ';
+  html+='<span style="color:#ffd54f">Risk: '+(maxSharpe.vol*100).toFixed(1)+'%</span> | ';
+  html+='<span style="color:#4fc3f7">Sharpe: '+maxSharpe.sharpe.toFixed(2)+'</span></div>';
+  for(var i=0;i<validTickers.length;i++){
+    var w=maxSharpe.weights[i]*100;
+    if(w<0.5)continue;
+    html+='<div class="weight-bar">';
+    html+='<span class="weight-bar-label">'+validTickers[i]+'</span>';
+    html+='<div class="weight-bar-fill" style="width:'+Math.min(w,100)*2+'px;background:'+colors[i%colors.length]+'"></div>';
+    html+='<span class="weight-bar-value">'+w.toFixed(1)+'%</span>';
+    html+='</div>';
+  }
+  html+='</div>';
+
+  // Min Volatility Portfolio
+  html+='<div class="result-card"><h4>🛡️ Minimum Volatility Portfolio</h4>';
+  html+='<div style="font-size:12px;color:#aaa;margin-bottom:8px">Lowest risk combination</div>';
+  html+='<div style="margin-bottom:8px"><span style="color:#69f0ae">Return: '+(minVol.ret*100).toFixed(1)+'%</span> | ';
+  html+='<span style="color:#ffd54f">Risk: '+(minVol.vol*100).toFixed(1)+'%</span> | ';
+  html+='<span style="color:#4fc3f7">Sharpe: '+minVol.sharpe.toFixed(2)+'</span></div>';
+  for(var i=0;i<validTickers.length;i++){
+    var w=minVol.weights[i]*100;
+    if(w<0.5)continue;
+    html+='<div class="weight-bar">';
+    html+='<span class="weight-bar-label">'+validTickers[i]+'</span>';
+    html+='<div class="weight-bar-fill" style="width:'+Math.min(w,100)*2+'px;background:'+colors[i%colors.length]+'"></div>';
+    html+='<span class="weight-bar-value">'+w.toFixed(1)+'%</span>';
+    html+='</div>';
+  }
+  html+='</div>';
+
+  html+='</div>';
+
+  // Asset statistics table
+  html+='<div class="section" style="margin-top:15px"><h3>Individual Asset Statistics</h3>';
+  html+='<table><tr><th>Asset</th><th>Annual Return</th><th>Annual Volatility</th><th>Sharpe Ratio</th></tr>';
+  for(var i=0;i<validTickers.length;i++){
+    var ret=meanReturns[validTickers[i]]*100;
+    var vol=Math.sqrt(covMatrix[i][i])*100;
+    var sharpe=(meanReturns[validTickers[i]]-riskFreeRate)/Math.sqrt(covMatrix[i][i]);
+    var retCls=ret>=0?'positive':'negative';
+    html+='<tr><td>'+validTickers[i]+'</td>';
+    html+='<td class="'+retCls+'">'+ret.toFixed(1)+'%</td>';
+    html+='<td>'+vol.toFixed(1)+'%</td>';
+    html+='<td>'+sharpe.toFixed(2)+'</td></tr>';
+  }
+  html+='</table></div>';
+
+  // Correlation matrix
+  html+='<div class="section"><h3>Correlation Matrix</h3>';
+  html+='<table><tr><th></th>';
+  validTickers.forEach(function(t){html+='<th>'+t+'</th>'});
+  html+='</tr>';
+  for(var i=0;i<validTickers.length;i++){
+    html+='<tr><td style="font-weight:bold">'+validTickers[i]+'</td>';
+    for(var j=0;j<validTickers.length;j++){
+      var corr=covMatrix[i][j]/(Math.sqrt(covMatrix[i][i])*Math.sqrt(covMatrix[j][j]));
+      var color=corr>0.7?'#ff6b6b':corr<0.3?'#69f0ae':'#e0e0e0';
+      html+='<td style="color:'+color+'">'+corr.toFixed(2)+'</td>';
+    }
+    html+='</tr>';
+  }
+  html+='</table>';
+  html+='<div style="font-size:11px;color:#888;margin-top:5px">🟢 Low correlation (good diversification) | 🔴 High correlation (similar movement)</div>';
+  html+='</div>';
+
+  document.getElementById('results').innerHTML=html;
+}
+</script>
+</body>
+</html>
