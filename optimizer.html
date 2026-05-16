@@ -146,7 +146,7 @@ async function runOptimizer(){
   document.getElementById('progressBar').style.width='0%';
   document.getElementById('results').innerHTML='';
   document.getElementById('selectedPortfolio').innerHTML='';
-  priceData={};tickerNames={};
+  priceData={};var savedNames=Object.assign({},tickerNames);tickerNames=savedNames;
   var now=Math.floor(Date.now()/1000);var start=new Date();start.setFullYear(start.getFullYear()-years);
   var period1=Math.floor(start.getTime()/1000);var allT=assets.map(function(a){return a.ticker});var loaded=0;var failed=[];
   for(var i=0;i<allT.length;i++){var ticker=allT[i];try{var url=PROXY+'?symbol='+encodeURIComponent(ticker)+'&period1='+period1+'&period2='+now+'&interval=1wk';var resp=await fetch(url);var data=await resp.json();if(data.chart&&data.chart.result&&data.chart.result[0]){var res=data.chart.result[0];var ts=res.timestamp||[];var cl=(res.indicators.adjclose&&res.indicators.adjclose[0]&&res.indicators.adjclose[0].adjclose)||res.indicators.quote[0].close||[];
