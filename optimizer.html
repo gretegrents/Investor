@@ -226,8 +226,8 @@ function showResults(validT,meanR,cov,maxS,minV,rf){
   for(var i=0;i<validT.length;i++){var ret=meanR[validT[i]]*100;var vol=Math.sqrt(cov[i][i])*100;var sh=(meanR[validT[i]]-rf)/Math.sqrt(cov[i][i]);var a=assets.find(function(x){return x.ticker===validT[i]});var cls=a?a.class:'?';html+='<tr><td style="text-align:left">'+getLabel(validT[i])+'</td><td>'+(cls==='bond'?'📊 Bond':'📈 Equity')+'</td><td class="'+(ret>=0?'positive':'negative')+'">'+ret.toFixed(1)+'%</td><td>'+vol.toFixed(1)+'%</td><td>'+sh.toFixed(2)+'</td></tr>';}
   html+='</table></div>';
   html+='<div class="section"><h3>Correlation Matrix</h3><table><tr><th></th>';
-  validT.forEach(function(t){html+='<th title="'+getLabel(t)+'">'+t+'</th>';});html+='</tr>';
-  for(var i=0;i<validT.length;i++){html+='<tr><td style="font-weight:bold" title="'+getLabel(validT[i])+'">'+validT[i]+'</td>';for(var j=0;j<validT.length;j++){var corr=cov[i][j]/(Math.sqrt(cov[i][i])*Math.sqrt(cov[j][j]));var color=corr>0.7?'#ff6b6b':corr<0.3?'#69f0ae':'#e0e0e0';html+='<td style="color:'+color+'">'+corr.toFixed(2)+'</td>';}html+='</tr>';}
+  validT.forEach(function(t){html+='<th title="'+getLabel(t)+'">'+(tickerNames[t]||t)+'</th>';});
+  html+='<tr><td style="font-weight:bold;text-align:left" title="'+getLabel(validT[i])+'">'+(tickerNames[validT[i]]||validT[i])+'</td>';
   html+='</table><div style="font-size:11px;color:#888;margin-top:5px">🟢 Low corr (diversified) | 🔴 High corr (redundant)</div></div>';
   document.getElementById('results').innerHTML=html;
 }
