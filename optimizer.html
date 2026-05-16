@@ -13,7 +13,7 @@ h1{text-align:center;margin-bottom:20px;color:#fff}
 h3{color:#4fc3f7;margin-bottom:10px;font-size:14px}
 .section{background:#2a2a4a;padding:15px;border-radius:8px;margin-bottom:20px}
 .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:10px}
-input[type=text],input[type=number]{padding:8px 12px;border-radius:4px;border:1px solid #444;background:#1a1a2e;color:#fff;width:200px;font-size:13px}
+input[type=text],input[type=number]{padding:8px 12px;border-radius:4px;border:1px solid #444;background:#1a1a2e;color:#fff;font-size:13px}
 input[type=number]{width:80px}
 select{padding:8px 12px;border-radius:4px;border:1px solid #444;background:#1a1a2e;color:#fff;font-size:13px}
 .btn{padding:8px 16px;border-radius:4px;border:none;cursor:pointer;font-size:13px}
@@ -73,21 +73,18 @@ td{color:#e0e0e0}
 <h1>⚡ Portfolio Optimizer</h1>
 <div class="section">
   <div class="row">
-    <label>Add asset:</label>
-    <input type="text" id="tickerInput" placeholder="Ticker (e.g. VOO)" onkeydown="if(event.key==='Enter')addTicker()" style="width:140px">
-<input type="text" id="nameInput" placeholder="Name (optional)" style="width:200px">
+    <input type="text" id="tickerInput" placeholder="Ticker" onkeydown="if(event.key==='Enter')addTicker()" style="width:130px">
+    <input type="text" id="nameInput" placeholder="Name (optional)" style="width:180px">
     <select id="assetClass"><option value="equity">📈 Equity</option><option value="bond">📊 Bond</option></select>
     <button class="btn btn-small btn-primary" onclick="addTicker()">Add</button>
     <button class="btn btn-secondary" onclick="clearAll()">Clear All</button>
   </div>
   <div class="row">
-  <input type="text" id="scenarioName" placeholder="Scenario name" style="width:160px">
-  <button class="btn btn-small btn-secondary" onclick="saveScenario()">💾 Save Scenario</button>
-  <select id="savedScenarios" onchange="loadScenario()" style="min-width:180px">
-    <option value="">— Saved Scenarios —</option>
-  </select>
-  <button class="btn btn-small btn-secondary" onclick="deleteScenario()">🗑️</button>
-</div>
+    <input type="text" id="scenarioName" placeholder="Scenario name" style="width:150px">
+    <button class="btn btn-small btn-secondary" onclick="saveScenario()">💾 Save</button>
+    <select id="savedScenarios" onchange="loadScenario()" style="min-width:180px"><option value="">— Scenarios —</option></select>
+    <button class="btn btn-small btn-secondary" onclick="deleteScenario()">🗑️</button>
+  </div>
   <div id="assetList"></div>
   <div class="row" style="margin-top:12px;border-top:1px solid #333;padding-top:12px">
     <label>Bond Allocation:</label>
@@ -117,7 +114,7 @@ td{color:#e0e0e0}
   <div class="row"><button class="btn btn-small btn-secondary" onclick="addNote()">Add Note</button></div>
   <div id="notesList"></div>
 </div>
-<div class="msg msg-info" style="margin-top:10px">Strategic allocation: set bond/equity split, Monte Carlo optimizes within each group. Click dots to explore.</div>
+<div class="msg msg-info" style="margin-top:10px">Strategic allocation optimizer. Set bond/equity split, add assets, click Optimize. Click dots to explore compositions.</div>
 </div>
 <script>
 var PROXY='https://yahoo.gretegrents.workers.dev/';
@@ -136,8 +133,8 @@ async function runOptimizer(){
   if(assets.length<2){document.getElementById('chartMsg').textContent='Add at least 2 assets';return;}
   var bondAlloc=parseInt(document.getElementById('bondSlider').value)/100;
   var eqAlloc=1-bondAlloc;
-  if(bondAlloc>0&&bdAssets.length===0){document.getElementById('chartMsg').textContent='Add bond assets or set bond allocation to 0%';return;}
-  if(eqAlloc>0&&eqAssets.length===0){document.getElementById('chartMsg').textContent='Add equity assets or set bond allocation to 100%';return;}
+  if(bondAlloc>0&&bdAssets.length===0){document.getElementById('chartMsg').textContent='Add bond assets or set bond to 0%';return;}
+  if(eqAlloc>0&&eqAssets.length===0){document.getElementById('chartMsg').textContent='Add equity assets or set bond to 100%';return;}
   var years=parseInt(document.getElementById('dataPeriod').value);
   var numSims=parseInt(document.getElementById('numSims').value);
   var rf=parseFloat(document.getElementById('riskFree').value)/100;
@@ -146,12 +143,12 @@ async function runOptimizer(){
   document.getElementById('progressBar').style.width='0%';
   document.getElementById('results').innerHTML='';
   document.getElementById('selectedPortfolio').innerHTML='';
-  priceData={};var savedNames=Object.assign({},tickerNames);tickerNames=savedNames;
+  priceData={};
+  var savedNames=Object.assign({},tickerNames);
+  tickerNames=savedNames;
   var now=Math.floor(Date.now()/1000);var start=new Date();start.setFullYear(start.getFullYear()-years);
   var period1=Math.floor(start.getTime()/1000);var allT=assets.map(function(a){return a.ticker});var loaded=0;var failed=[];
-  for(var i=0;i<allT.length;i++){var ticker=allT[i];try{var url=PROXY+'?symbol='+encodeURIComponent(ticker)+'&period1='+period1+'&period2='+now+'&interval=1wk';var resp=await fetch(url);var data=await resp.json();if(data.chart&&data.chart.result&&data.chart.result[0]){var res=data.chart.result[0];var ts=res.timestamp||[];var cl=(res.indicators.adjclose&&res.indicators.adjclose[0]&&res.indicators.adjclose[0].adjclose)||res.indicators.quote[0].close||[];
-;var pr=[];for(var j=0;j<ts.length;j++){if(cl[j]!==null)pr.push(cl[j]);}if(pr.length>10){priceData[ticker]=pr;if(!tickerNames[ticker])tickerNames[ticker]=res.meta.shortName||res.meta.longName||ticker;
-}else failed.push(ticker);}else failed.push(ticker);}catch(e){failed.push(ticker);}loaded++;document.getElementById('progressBar').style.width=Math.round(loaded/allT.length*30)+'%';}
+  for(var i=0;i<allT.length;i++){var ticker=allT[i];try{var url=PROXY+'?symbol='+encodeURIComponent(ticker)+'&period1='+period1+'&period2='+now+'&interval=1wk';var resp=await fetch(url);var data=await resp.json();if(data.chart&&data.chart.result&&data.chart.result[0]){var res=data.chart.result[0];var ts=res.timestamp||[];var cl=(res.indicators.adjclose&&res.indicators.adjclose[0]&&res.indicators.adjclose[0].adjclose)||res.indicators.quote[0].close||[];var pr=[];for(var j=0;j<ts.length;j++){if(cl[j]!==null)pr.push(cl[j]);}if(pr.length>10){priceData[ticker]=pr;if(!tickerNames[ticker])tickerNames[ticker]=res.meta.shortName||res.meta.longName||ticker;}else failed.push(ticker);}else failed.push(ticker);}catch(e){failed.push(ticker);}loaded++;document.getElementById('progressBar').style.width=Math.round(loaded/allT.length*30)+'%';}
   renderAssetList();
   if(failed.length>0){document.getElementById('chartMsg').textContent='Failed: '+failed.join(', ');document.getElementById('progressBox').style.display='none';return;}
   var validT=Object.keys(priceData);var vEq=eqAssets.map(function(a){return a.ticker}).filter(function(t){return priceData[t]});var vBd=bdAssets.map(function(a){return a.ticker}).filter(function(t){return priceData[t]});
@@ -166,9 +163,9 @@ async function runOptimizer(){
   for(var sim=0;sim<numSims;sim++){
     var wEq=[],wBd=[],sE=0,sB=0;
     for(var i=0;i<vEq.length;i++){wEq[i]=Math.random();sE+=wEq[i];}
-    for(var i=0;i<vEq.length;i++)wEq[i]/=sE;
+    for(var i=0;i<vEq.length;i++)wEq[i]/=sE||1;
     for(var i=0;i<vBd.length;i++){wBd[i]=Math.random();sB+=wBd[i];}
-    for(var i=0;i<vBd.length;i++)wBd[i]/=sB;
+    for(var i=0;i<vBd.length;i++)wBd[i]/=sB||1;
     var allW=[];
     for(var i=0;i<n;i++){var w=0;var ei=vEq.indexOf(validT[i]);var bi=vBd.indexOf(validT[i]);if(ei>=0)w+=wEq[ei]*eqAlloc;if(bi>=0)w+=wBd[bi]*bondAlloc;allW.push(w);}
     var pRet=0;for(var i=0;i<n;i++)pRet+=allW[i]*meanR[validT[i]];
@@ -209,7 +206,7 @@ function showSelected(p){
   html+='<div style="margin-bottom:8px"><span style="color:#69f0ae">Return: '+(p.ret*100).toFixed(1)+'%</span> | <span style="color:#ffd54f">Risk: '+(p.vol*100).toFixed(1)+'%</span> | <span style="color:#4fc3f7">Sharpe: '+p.sharpe.toFixed(2)+'</span></div>';
   var sorted=[];for(var i=0;i<validTickersGlobal.length;i++){var a=assets.find(function(x){return x.ticker===validTickersGlobal[i]});sorted.push({ticker:validTickersGlobal[i],weight:p.weights[i],color:colors[i%colors.length],cls:a?a.class:'equity'});}
   sorted.sort(function(a,b){return b.weight-a.weight});
-  sorted.forEach(function(s){var w=s.weight*100;if(w<0.5)return;var tag=s.cls==='bond'?'<span class="bond-tag">BOND</span> ':'<span class="equity-tag">EQ</span> ';html+='<div class="weight-bar"><span class="weight-bar-label">'+tag+getLabel(s.ticker)+'</span><div class="weight-bar-fill" style="width:'+Math.min(w,100)*2+'px;background:'+s.color+'"></div><span class="weight-bar-value">'+w.toFixed(1)+'%</span></div>';});
+  sorted.forEach(function(s){var w=s.weight*100;if(w<0.5)return;var tag=s.cls==='bond'?'<span class="bond-tag">BD</span> ':'<span class="equity-tag">EQ</span> ';html+='<div class="weight-bar"><span class="weight-bar-label">'+tag+getLabel(s.ticker)+'</span><div class="weight-bar-fill" style="width:'+Math.min(w,100)*2+'px;background:'+s.color+'"></div><span class="weight-bar-value">'+w.toFixed(1)+'%</span></div>';});
   html+='</div>';document.getElementById('selectedPortfolio').innerHTML=html;
 }
 
@@ -222,73 +219,31 @@ function showResults(validT,meanR,cov,maxS,minV,rf){
   html+='<div class="result-card"><h4>🛡️ Min Volatility Portfolio</h4><div style="margin-bottom:8px"><span style="color:#69f0ae">Ret: '+(minV.ret*100).toFixed(1)+'%</span> | <span style="color:#ffd54f">Risk: '+(minV.vol*100).toFixed(1)+'%</span> | <span style="color:#4fc3f7">Sharpe: '+minV.sharpe.toFixed(2)+'</span></div>';
   for(var i=0;i<validT.length;i++){var w=minV.weights[i]*100;if(w<0.5)continue;var a=assets.find(function(x){return x.ticker===validT[i]});var tag=a&&a.class==='bond'?'<span class="bond-tag">BD</span> ':'<span class="equity-tag">EQ</span> ';html+='<div class="weight-bar"><span class="weight-bar-label">'+tag+getLabel(validT[i])+'</span><div class="weight-bar-fill" style="width:'+Math.min(w,100)*2+'px;background:'+colors[i%colors.length]+'"></div><span class="weight-bar-value">'+w.toFixed(1)+'%</span></div>';}
   html+='</div></div>';
-  html+='<div class="section" style="margin-top:15px"><h3>Asset Statistics</h3><table><tr><th style="text-align:left">Asset</th><th>Class</th><th>Return</th><th>Volatility</th><th>Sharpe</th></tr>';
-  for(var i=0;i<validT.length;i++){var ret=meanR[validT[i]]*100;var vol=Math.sqrt(cov[i][i])*100;var sh=(meanR[validT[i]]-rf)/Math.sqrt(cov[i][i]);var a=assets.find(function(x){return x.ticker===validT[i]});var cls=a?a.class:'?';html+='<tr><td style="text-align:left">'+getLabel(validT[i])+'</td><td>'+(cls==='bond'?'📊 Bond':'📈 Equity')+'</td><td class="'+(ret>=0?'positive':'negative')+'">'+ret.toFixed(1)+'%</td><td>'+vol.toFixed(1)+'%</td><td>'+sh.toFixed(2)+'</td></tr>';}
+  html+='<div class="section" style="margin-top:15px"><h3>Asset Statistics</h3><table><tr><th style="text-align:left">Asset</th><th>Class</th><th>Return</th><th>Risk</th><th>Sharpe</th></tr>';
+  for(var i=0;i<validT.length;i++){var ret=meanR[validT[i]]*100;var vol=Math.sqrt(cov[i][i])*100;var sh=(meanR[validT[i]]-rf)/Math.sqrt(cov[i][i]);var a=assets.find(function(x){return x.ticker===validT[i]});var cls=a?a.class:'?';html+='<tr><td style="text-align:left">'+getLabel(validT[i])+'</td><td>'+(cls==='bond'?'📊':'📈')+'</td><td class="'+(ret>=0?'positive':'negative')+'">'+ret.toFixed(1)+'%</td><td>'+vol.toFixed(1)+'%</td><td>'+sh.toFixed(2)+'</td></tr>';}
   html+='</table></div>';
   html+='<div class="section"><h3>Correlation Matrix</h3><table><tr><th></th>';
-for(var i=0;i<validT.length;i++){html+='<th title="'+getLabel(validT[i])+'">'+validT[i]+'</th>';}
-html+='</tr>';
-for(var i=0;i<validT.length;i++){
-  html+='<tr><td style="font-weight:bold" title="'+getLabel(validT[i])+'">'+validT[i]+'</td>';
-  for(var j=0;j<validT.length;j++){
-    var corr=cov[i][j]/(Math.sqrt(cov[i][i])*Math.sqrt(cov[j][j]));
-    var color=corr>0.7?'#ff6b6b':corr<0.3?'#69f0ae':'#e0e0e0';
-    html+='<td style="color:'+color+'">'+corr.toFixed(2)+'</td>';
-  }
+  for(var i=0;i<validT.length;i++)html+='<th>'+validT[i]+'</th>';
   html+='</tr>';
-}
-html+='</table><div style="font-size:11px;color:#888;margin-top:5px">Hover headers for full names | Green=low correlation | Red=high correlation</div></div>';
-function saveScenario(){
-  var name=document.getElementById('scenarioName').value.trim();
-  if(!name){alert('Enter a scenario name');return;}
-  if(!assets.length){alert('Add assets first');return;}
-  var scenarios=JSON.parse(localStorage.getItem('optimizerScenarios')||'{}');
-  scenarios[name]={
-    assets:assets.slice(),
-    bondAlloc:document.getElementById('bondSlider').value,
-    period:document.getElementById('dataPeriod').value,
-    riskFree:document.getElementById('riskFree').value,
-    savedAt:new Date().toLocaleString()
-  };
-  localStorage.setItem('optimizerScenarios',JSON.stringify(scenarios));
-  document.getElementById('scenarioName').value='';
-  loadScenarioList();
-}
-function loadScenario(){
-  var sel=document.getElementById('savedScenarios');
-  var name=sel.value;if(!name)return;
-  var scenarios=JSON.parse(localStorage.getItem('optimizerScenarios')||'{}');
-  if(scenarios[name]){
-    assets=scenarios[name].assets.slice();
-    document.getElementById('bondSlider').value=scenarios[name].bondAlloc||40;
-    document.getElementById('dataPeriod').value=scenarios[name].period||'5';
-    document.getElementById('riskFree').value=scenarios[name].riskFree||'4.0';
-    updateSlider();renderAssetList();
+  for(var i=0;i<validT.length;i++){
+    html+='<tr><td style="font-weight:bold">'+validT[i]+'</td>';
+    for(var j=0;j<validT.length;j++){var corr=cov[i][j]/(Math.sqrt(cov[i][i])*Math.sqrt(cov[j][j]));var color=corr>0.7?'#ff6b6b':corr<0.3?'#69f0ae':'#e0e0e0';html+='<td style="color:'+color+'">'+corr.toFixed(2)+'</td>';}
+    html+='</tr>';
   }
+  html+='</table><div style="font-size:11px;color:#888;margin-top:5px">Green=low correlation (diversified) | Red=high correlation (redundant)</div></div>';
+  document.getElementById('results').innerHTML=html;
 }
-function deleteScenario(){
-  var sel=document.getElementById('savedScenarios');
-  var name=sel.value;if(!name){alert('Select a scenario');return;}
-  var scenarios=JSON.parse(localStorage.getItem('optimizerScenarios')||'{}');
-  delete scenarios[name];
-  localStorage.setItem('optimizerScenarios',JSON.stringify(scenarios));
-  loadScenarioList();
-}
-function loadScenarioList(){
-  var scenarios=JSON.parse(localStorage.getItem('optimizerScenarios')||'{}');
-  var sel=document.getElementById('savedScenarios');
-  sel.innerHTML='<option value="">— Saved Scenarios —</option>';
-  Object.keys(scenarios).forEach(function(name){
-    var s=scenarios[name];
-    sel.innerHTML+='<option value="'+name+'">'+name+' ('+s.assets.length+' assets, '+s.savedAt+')</option>';
-  });
-}
-loadScenarioList();
+
+function saveScenario(){var name=document.getElementById('scenarioName').value.trim();if(!name){alert('Enter name');return;}if(!assets.length){alert('Add assets');return;}var sc=JSON.parse(localStorage.getItem('optimizerScenarios')||'{}');sc[name]={assets:JSON.parse(JSON.stringify(assets)),names:Object.assign({},tickerNames),bondAlloc:document.getElementById('bondSlider').value,period:document.getElementById('dataPeriod').value,riskFree:document.getElementById('riskFree').value,savedAt:new Date().toLocaleString()};localStorage.setItem('optimizerScenarios',JSON.stringify(sc));document.getElementById('scenarioName').value='';loadScenarioList();}
+function loadScenario(){var sel=document.getElementById('savedScenarios');var name=sel.value;if(!name)return;var sc=JSON.parse(localStorage.getItem('optimizerScenarios')||'{}');if(sc[name]){assets=sc[name].assets.slice();if(sc[name].names)tickerNames=Object.assign({},sc[name].names);document.getElementById('bondSlider').value=sc[name].bondAlloc||40;document.getElementById('dataPeriod').value=sc[name].period||'5';document.getElementById('riskFree').value=sc[name].riskFree||'4.0';updateSlider();renderAssetList();}}
+function deleteScenario(){var sel=document.getElementById('savedScenarios');var name=sel.value;if(!name)return;var sc=JSON.parse(localStorage.getItem('optimizerScenarios')||'{}');delete sc[name];localStorage.setItem('optimizerScenarios',JSON.stringify(sc));loadScenarioList();}
+function loadScenarioList(){var sc=JSON.parse(localStorage.getItem('optimizerScenarios')||'{}');var sel=document.getElementById('savedScenarios');sel.innerHTML='<option value="">— Scenarios —</option>';Object.keys(sc).forEach(function(name){sel.innerHTML+='<option value="'+name+'">'+name+' ('+sc[name].assets.length+')</option>';});}
 
 function addNote(){var text=document.getElementById('noteInput').value.trim();if(!text)return;var notes=JSON.parse(localStorage.getItem('optimizerNotes')||'[]');notes.unshift({time:new Date().toLocaleString(),text:text,tickers:assets.map(function(a){return a.ticker})});localStorage.setItem('optimizerNotes',JSON.stringify(notes));document.getElementById('noteInput').value='';renderNotes();}
 function deleteNote(i){var notes=JSON.parse(localStorage.getItem('optimizerNotes')||'[]');notes.splice(i,1);localStorage.setItem('optimizerNotes',JSON.stringify(notes));renderNotes();}
 function renderNotes(){var notes=JSON.parse(localStorage.getItem('optimizerNotes')||'[]');var html='';notes.forEach(function(n,i){html+='<div class="note-item"><span class="note-delete" onclick="deleteNote('+i+')">✕</span><div class="note-time">'+n.time+(n.tickers?' — ['+n.tickers.join(', ')+']':'')+'</div><div class="note-text">'+n.text+'</div></div>';});document.getElementById('notesList').innerHTML=html;}
 renderNotes();
+loadScenarioList();
 </script>
 </body>
 </html>
