@@ -265,18 +265,13 @@ function addFromLibrary(){
 }
 
 function manageLibrary(){
+  var sel=document.getElementById('tickerLibrary');
+  var val=sel.value;
+  if(!val){alert('Select a ticker from the library dropdown first, then click delete');return;}
   var lib=JSON.parse(localStorage.getItem('tickerLibrary')||'[]');
-  if(!lib.length){alert('Library is empty');return;}
-  var msg='Your ticker library:\n\n';
-  lib.forEach(function(x,i){msg+=(i+1)+'. '+x.ticker+(x.name?' — '+x.name:'')+' ('+x.class+')\n';});
-  msg+='\nType ticker to delete (or "cancel"):';
-  var del=prompt(msg);
-  if(!del||del.toLowerCase()==='cancel')return;
-  del=del.trim().toUpperCase();
-  lib=lib.filter(function(x){return x.ticker!==del});
+  lib=lib.filter(function(x){return x.ticker!==val});
   localStorage.setItem('tickerLibrary',JSON.stringify(lib));
   renderLibrary();
-  alert(del+' removed from library');
 }
 
 function renderLibrary(){
