@@ -80,6 +80,13 @@ td{color:#e0e0e0}
     <button class="btn btn-secondary" onclick="clearAll()">Clear All</button>
   </div>
   <div class="row">
+  <label>Library:</label>
+  <select id="tickerLibrary" onchange="addFromLibrary()" style="min-width:250px">
+    <option value="">— Pick from saved tickers —</option>
+  </select>
+  <button class="btn btn-small btn-secondary" onclick="manageLibrary()">🗑️ Manage Library</button>
+</div>
+  <div class="row">
     <input type="text" id="scenarioName" placeholder="Scenario name" style="width:150px">
     <button class="btn btn-small btn-secondary" onclick="saveScenario()">💾 Save</button>
     <select id="savedScenarios" onchange="loadScenario()" style="min-width:180px"><option value="">— Scenarios —</option></select>
@@ -120,7 +127,7 @@ td{color:#e0e0e0}
 var PROXY='https://yahoo.gretegrents.workers.dev/';
 var chart=null,assets=[],priceData={},allPortfolios=[],validTickersGlobal=[],tickerNames={},sampleStep=1;
 
-function addTicker(){var input=document.getElementById('tickerInput');var nameIn=document.getElementById('nameInput');var val=input.value.trim().toUpperCase();var name=nameIn.value.trim();var cls=document.getElementById('assetClass').value;if(val&&!assets.find(function(a){return a.ticker===val})){assets.push({ticker:val,class:cls});if(name)tickerNames[val]=name;renderAssetList();}input.value='';nameIn.value='';input.focus();}
+function addTicker(){var input=document.getElementById('tickerInput');var nameIn=document.getElementById('nameInput');var val=input.value.trim().toUpperCase();var name=nameIn.value.trim();var cls=document.getElementById('assetClass').value;if(val&&!assets.find(function(a){return a.ticker===val})){assets.push({ticker:val,class:cls});if(name)tickerNames[val]=name;saveToLibrary(val,name,cls);renderAssetList();}input.value='';nameIn.value='';input.focus();}
 function removeAsset(t){assets=assets.filter(function(a){return a.ticker!==t});renderAssetList();}
 function changeClass(t,c){var a=assets.find(function(x){return x.ticker===t});if(a)a.class=c;renderAssetList();}
 function clearAll(){assets=[];renderAssetList();if(chart){chart.destroy();chart=null;}document.getElementById('results').innerHTML='';document.getElementById('chartMsg').textContent='';document.getElementById('selectedPortfolio').innerHTML='';}
@@ -233,7 +240,55 @@ function showResults(validT,meanR,cov,maxS,minV,rf){
   html+='</table><div style="font-size:11px;color:#888;margin-top:5px">Green=low correlation (diversified) | Red=high correlation (redundant)</div></div>';
   document.getElementById('results').innerHTML=html;
 }
+function saveToLibrary(ticker,name,cls){
+  var lib=JSON.parse(localStorage.getItem('tickerLibrary')||'[]');
+  if(!lib.find(function(x){return x.ticker===ticker})){
+    lib.push({ticker:ticker,name:name||'',class:cls||'equity'});
+    lib.sort(function(a,b){return a.ticker.localeCompare(b.ticker)});
+    localStorage.setItem('tickerLibrary',JSON.stringify(lib));
+  }
+  renderLibrary();
+}
 
+function addFromLibrary(){
+  var sel=document.getElementById('tickerLibrary');
+  var val=sel.value;
+  if(!val)return;
+  var lib=JSON.parse(localStorage.getItem('tickerLibrary')||'[]');
+  var item=lib.find(function(x){return x.ticker===val});
+  if(item&&!assets.find(function(a){return a.ticker===val})){
+    assets.push({ticker:item.ticker,class:item.class});
+    if(item.name)tickerNames[item.ticker]=item.name;
+    renderAssetList();
+  }
+  sel.value='';
+}
+
+function manageLibrary(){
+  var lib=JSON.parse(localStorage.getItem('tickerLibrary')||'[]');
+  if(!lib.length){alert('Library is empty');return;}
+  var msg='Your ticker library:\n\n';
+  lib.forEach(function(x,i){msg+=(i+1)+'. '+x.ticker+(x.name?' — '+x.name:'')+' ('+x.class+')\n';});
+  msg+='\nType ticker to delete (or "cancel"):';
+  var del=prompt(msg);
+  if(!del||del.toLowerCase()==='cancel')return;
+  del=del.trim().toUpperCase();
+  lib=lib.filter(function(x){return x.ticker!==del});
+  localStorage.setItem('tickerLibrary',JSON.stringify(lib));
+  renderLibrary();
+  alert(del+' removed from library');
+}
+
+function renderLibrary(){
+  var lib=JSON.parse(localStorage.getItem('tickerLibrary')||'[]');
+  var sel=document.getElementById('tickerLibrary');
+  sel.innerHTML='<option value="">— Pick from saved tickers ('+lib.length+') —</option>';
+  lib.forEach(function(x){
+    var label=x.ticker+(x.name?' — '+x.name:'')+' ['+(x.class==='bond'?'Bond':'Equity')+']';
+    sel.innerHTML+='<option value="'+x.ticker+'">'+label+'</option>';
+  });
+}
+renderLibrary();
 function saveScenario(){var name=document.getElementById('scenarioName').value.trim();if(!name){alert('Enter name');return;}if(!assets.length){alert('Add assets');return;}var sc=JSON.parse(localStorage.getItem('optimizerScenarios')||'{}');sc[name]={assets:JSON.parse(JSON.stringify(assets)),names:Object.assign({},tickerNames),bondAlloc:document.getElementById('bondSlider').value,period:document.getElementById('dataPeriod').value,riskFree:document.getElementById('riskFree').value,savedAt:new Date().toLocaleString()};localStorage.setItem('optimizerScenarios',JSON.stringify(sc));document.getElementById('scenarioName').value='';loadScenarioList();}
 function loadScenario(){var sel=document.getElementById('savedScenarios');var name=sel.value;if(!name)return;var sc=JSON.parse(localStorage.getItem('optimizerScenarios')||'{}');if(sc[name]){assets=sc[name].assets.slice();if(sc[name].names)tickerNames=Object.assign({},sc[name].names);document.getElementById('bondSlider').value=sc[name].bondAlloc||40;document.getElementById('dataPeriod').value=sc[name].period||'5';document.getElementById('riskFree').value=sc[name].riskFree||'4.0';updateSlider();renderAssetList();}}
 function deleteScenario(){var sel=document.getElementById('savedScenarios');var name=sel.value;if(!name)return;var sc=JSON.parse(localStorage.getItem('optimizerScenarios')||'{}');delete sc[name];localStorage.setItem('optimizerScenarios',JSON.stringify(sc));loadScenarioList();}
@@ -244,6 +299,7 @@ function deleteNote(i){var notes=JSON.parse(localStorage.getItem('optimizerNotes
 function renderNotes(){var notes=JSON.parse(localStorage.getItem('optimizerNotes')||'[]');var html='';notes.forEach(function(n,i){html+='<div class="note-item"><span class="note-delete" onclick="deleteNote('+i+')">✕</span><div class="note-time">'+n.time+(n.tickers?' — ['+n.tickers.join(', ')+']':'')+'</div><div class="note-text">'+n.text+'</div></div>';});document.getElementById('notesList').innerHTML=html;}
 renderNotes();
 loadScenarioList();
+renderLibrary();
 </script>
 </body>
 </html>
