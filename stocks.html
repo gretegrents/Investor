@@ -163,7 +163,9 @@ function setTime(r,btn){
   timeRange=r;
   document.querySelectorAll('.time-btn').forEach(function(b){b.classList.remove('active')});
   btn.classList.add('active');
-  if(Object.keys(chartData).length>0)renderChart();
+  if(tickers.length>0){
+    fetchChart();
+  }
 }
 
 function fetchChart(){
